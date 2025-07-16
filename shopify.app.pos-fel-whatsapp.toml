@@ -1,0 +1,24 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "91c09fd5838536b92b2a21c7c31e3c82"
+name = "POS FEL WhatsApp"
+handle = "pos-fel-whatsapp"
+application_url = "https://refuse-mattress-donor-la.trycloudflare.com"
+embedded = true
+
+[webhooks]
+api_version = "2025-07"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_products,write_products,read_customers,write_customers,read_orders,write_orders,read_inventory,write_inventory,read_draft_orders,write_draft_orders"
+
+[auth]
+redirect_urls = ["https://refuse-mattress-donor-la.trycloudflare.com/auth/callback", "https://refuse-mattress-donor-la.trycloudflare.com/auth/shopify/callback", "https://refuse-mattress-donor-la.trycloudflare.com/api/auth/callback"]
+
+[pos]
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
