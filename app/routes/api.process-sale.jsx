@@ -71,7 +71,37 @@ export async function action({ request }) {
     } else {
       // Cliente nuevo
       try {
-        // Primero buscar si ya existe un cliente con este teléfono
+        // VALIDACIÓN IMPORTANTE: Verificar si el teléfono ya existe
+        if (phoneNumber) {
+          const phoneCheck = await admin.graphql(`
+            query checkPhone($phone: String!) {
+              customers(first: 1, query: $phone) {
+                edges {
+                  node {
+                    id
+                    firstName
+                    lastName
+                    phone
+                  }
+                }
+              }
+            }
+          `, {
+            variables: {
+              phone: phoneNumber
+            }
+          });
+
+          const phoneCheckData = await phoneCheck.json();
+          
+          if (phoneCheckData.data.customers.edges.length > 0) {
+            // El teléfono ya existe en otro cliente
+            const existingCustomer = phoneCheckData.data.customers.edges[0].node;
+            throw new Error(`El número de teléfono ${phoneNumber} ya está registrado para el cliente: ${existingCustomer.firstName || ''} ${existingCustomer.lastName || ''}`);
+          }
+        }
+
+        // Si no existe, proceder a crear/actualizar
         const existingCustomers = await admin.graphql(`
           query {
             customers(first: 1, query: "phone:${phoneNumber}") {
@@ -87,40 +117,8 @@ export async function action({ request }) {
         const existingData = await existingCustomers.json();
         
         if (existingData.data.customers.edges.length > 0) {
-          // Cliente ya existe, actualizar datos
-          customerId = existingData.data.customers.edges[0].node.id;
-          
-          await admin.graphql(`
-            mutation customerUpdate($input: CustomerInput!) {
-              customerUpdate(input: $input) {
-                customer {
-                  id
-                }
-                userErrors {
-                  field
-                  message
-                }
-              }
-            }
-          `, {
-            variables: {
-              input: {
-                id: customerId,
-                firstName: nit?.tax_name || "CONSUMIDOR FINAL",
-                lastName: nit?.tax_code || "CF",
-                phone: phoneNumber,
-                tags: ["POS", "FEL"],
-                metafields: [
-                  {
-                    namespace: "custom",
-                    key: "nit",
-                    value: nit?.tax_code || "CF",
-                    type: "single_line_text_field"
-                  }
-                ]
-              }
-            }
-          });
+          // Este caso no debería ocurrir por la validación anterior
+          throw new Error("El número de teléfono ya está registrado");
         } else {
           // Crear nuevo cliente
           const createCustomer = await admin.graphql(`
@@ -143,13 +141,14 @@ export async function action({ request }) {
                 phone: phoneNumber,
                 tax_exempt: false,
                 tags: ["POS", "FEL", "NUEVO"],
-                addresses: nit?.address ? [{
-                  address1: nit.address.street || "",
-                  city: nit.address.city || "Guatemala",
-                  province: nit.address.state || "Guatemala",
-                  zip: nit.address.zip || "01001",
-                  country: "GT"
-                }] : [],
+                addresses: [{
+                  address1: nit?.address?.street || "Ciudad",
+                  city: nit?.address?.city || "Guatemala",
+                  province: nit?.address?.state || "Guatemala",
+                  zip: nit?.address?.zip || "01001",
+                  country: "GT",
+                  countryCode: "GT"
+                }],
                 metafields: [
                   {
                     namespace: "custom",
@@ -177,23 +176,33 @@ export async function action({ request }) {
         
       } catch (error) {
         console.error("Error con cliente:", error);
-        throw new Error("Error al crear/actualizar cliente");
+        throw new Error(error.message || "Error al crear/actualizar cliente");
       }
     }
 
     // Paso 2: Crear orden en Shopify
     let order;
     try {
-      const lineItems = products.map(product => ({
-        variantId: product.variantId,
-        quantity: product.quantity
-      }));
+      const lineItems = products
+        .filter(product => !product.isCustom) // Filtrar productos personalizados para Shopify
+        .map(product => ({
+          variantId: product.variantId,
+          quantity: product.quantity
+        }));
+
+      // Agregar nota sobre productos personalizados si existen
+      const customProducts = products.filter(p => p.isCustom);
+      let customProductsNote = '';
+      if (customProducts.length > 0) {
+        customProductsNote = '\n\nPRODUCTOS PERSONALIZADOS:\n' +
+          customProducts.map(p => `- ${p.title}: Q${p.price} x ${p.quantity}`).join('\n');
+      }
 
       const orderInput = {
         customerId: customerId,
         lineItems: lineItems,
         tags: ["POS", "FEL", customerType === 'new' ? "CLIENTE_NUEVO" : "CLIENTE_EXISTENTE"],
-        note: `NIT: ${customerData.nit}\nWhatsApp: ${phoneNumber}\nTipo: ${customerType}\nDescuento: Q${discountTotal}`
+        note: `NIT: ${customerData.nit}\nWhatsApp: ${phoneNumber}\nTipo: ${customerType}\nDescuento: Q${discountTotal}${customProductsNote}`
       };
 
       // Crear borrador de orden
@@ -333,9 +342,10 @@ export async function action({ request }) {
       // No lanzar error aquí
     }
 
-    // Paso 6: Completar la orden draft
+    // Paso 6: Completar la orden draft y marcarla como pagada/enviada
     try {
-      await admin.graphql(`
+      // Primero completar el draft
+      const completeResponse = await admin.graphql(`
         mutation draftOrderComplete($id: ID!) {
           draftOrderComplete(id: $id) {
             draftOrder {
@@ -351,12 +361,50 @@ export async function action({ request }) {
           }
         }
       `, {
-        variables: {
-          id: order.id
-        }
+        variables: { id: order.id }
       });
+
+      const completeResult = await completeResponse.json();
+      if (completeResult.data.draftOrderComplete.order) {
+        const completedOrderId = completeResult.data.draftOrderComplete.order.id;
+        
+        // Marcar como pagada
+        await admin.graphql(`
+          mutation orderMarkAsPaid($input: OrderMarkAsPaidInput!) {
+            orderMarkAsPaid(input: $input) {
+              order { id }
+              userErrors { field message }
+            }
+          }
+        `, {
+          variables: { input: { id: completedOrderId } }
+        });
+
+        // Crear fulfillment para marcar como enviada
+        await admin.graphql(`
+          mutation fulfillmentCreate($fulfillment: FulfillmentV2Input!) {
+            fulfillmentCreateV2(fulfillment: $fulfillment) {
+              fulfillment { id status }
+              userErrors { field message }
+            }
+          }
+        `, {
+          variables: {
+            fulfillment: {
+              orderId: completedOrderId,
+              notifyCustomer: false,
+              trackingInfo: {
+                company: "Entrega Local",
+                number: `LOCAL-${new Date().getTime()}`
+              },
+              lineItemsByFulfillmentOrder: { fulfillmentOrderLineItems: [] }
+            }
+          }
+        });
+      }
     } catch (error) {
-      console.error("Error completando orden:", error);
+      console.error("Error completando/actualizando orden:", error);
+      // No lanzar error aquí ya que la factura ya fue creada
     }
 
     return json({

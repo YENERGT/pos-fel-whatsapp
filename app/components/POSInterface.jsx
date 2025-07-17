@@ -277,7 +277,7 @@ export default function POSInterface() {
       <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
         <h1>POS - Facturación FEL</h1>
         
-        <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: '20px', marginTop: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '450px 1fr', gap: '20px', marginTop: '20px' }}>
           {/* Panel de cliente */}
           <div style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
             <h2>Información del Cliente</h2>
@@ -498,32 +498,6 @@ export default function POSInterface() {
                   : 'Incluya el código de país (+502 para Guatemala)'}
               </small>
             </div>
-
-            {/* Botón de procesar */}
-            <button
-              onClick={processSale}
-              disabled={processing || selectedProducts.length === 0 || 
-                (customerType === 'existing' && !selectedCustomer) ||
-                (customerType === 'new' && !nitSearchResult)}
-              style={{
-                width: '100%',
-                marginTop: '24px',
-                padding: '12px',
-                background: processing || selectedProducts.length === 0 || 
-                  (customerType === 'existing' && !selectedCustomer) ||
-                  (customerType === 'new' && !nitSearchResult) ? '#ccc' : '#008060',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                cursor: processing || selectedProducts.length === 0 || 
-                  (customerType === 'existing' && !selectedCustomer) ||
-                  (customerType === 'new' && !nitSearchResult) ? 'default' : 'pointer'
-              }}
-            >
-              {processing ? 'Procesando...' : 'Procesar Venta'}
-            </button>
           </div>
 
           {/* Panel de productos con descuento global */}
@@ -534,10 +508,17 @@ export default function POSInterface() {
             <h2>Productos</h2>
           {/* Quitar el key que causa el re-render */}
           <ProductSelector 
-            onProductsChange={setSelectedProducts} 
-            onDiscountChange={handleDiscountChange}
-            selectedProducts={selectedProducts} // Pasar los productos seleccionados
-          />
+  onProductsChange={setSelectedProducts} 
+  onDiscountChange={handleDiscountChange}
+  selectedProducts={selectedProducts}
+  onProcessSale={processSale}
+  processing={processing}
+  canProcess={
+    selectedProducts.length > 0 && 
+    ((customerType === 'existing' && selectedCustomer) ||
+    (customerType === 'new' && nitSearchResult))
+  }
+/>
           </div>
         </div>
       </div>

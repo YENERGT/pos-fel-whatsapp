@@ -3,7 +3,7 @@
 client_id = "91c09fd5838536b92b2a21c7c31e3c82"
 name = "POS FEL WhatsApp"
 handle = "pos-fel-whatsapp"
-application_url = "https://import-radiation-rack-eyed.trycloudflare.com"
+application_url = "https://forestry-specs-introduces-cb.trycloudflare.com"
 embedded = true
 
 [webhooks]
@@ -14,7 +14,7 @@ api_version = "2025-07"
 scopes = "read_products,write_products,read_customers,write_customers,read_orders,write_orders,read_inventory,write_inventory,read_draft_orders,write_draft_orders"
 
 [auth]
-redirect_urls = ["https://import-radiation-rack-eyed.trycloudflare.com/auth/callback", "https://import-radiation-rack-eyed.trycloudflare.com/auth/shopify/callback", "https://import-radiation-rack-eyed.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://forestry-specs-introduces-cb.trycloudflare.com/auth/callback", "https://forestry-specs-introduces-cb.trycloudflare.com/auth/shopify/callback", "https://forestry-specs-introduces-cb.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false

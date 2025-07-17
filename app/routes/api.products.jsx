@@ -25,6 +25,7 @@ export async function loader({ request }) {
                     id
                     title
                     price
+                    compareAtPrice
                     sku
                     inventoryQuantity
                     inventoryItem {
@@ -67,6 +68,7 @@ export async function loader({ request }) {
             baseTitle: product.title,
             variantTitle: variant.title,
             description: product.description,
+            compareAtPrice: variant.compareAtPrice || null,
             price: variant.price || "0",
             sku: variant.sku || "",
             inventory: variant.inventoryQuantity || 0,
