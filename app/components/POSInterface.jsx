@@ -326,7 +326,6 @@ const animationStyles = `
 `;
 
 // Agregar estas media queries CSS actualizadas
-// Agregar estas media queries CSS actualizadas
 const responsiveStyles = `
   @media (max-width: 768px) {
     .pos-container {
@@ -455,6 +454,37 @@ const responsiveStyles = `
     .error-box {
       font-size: 13px !important;
       padding: 12px !important;
+    }
+  }
+
+  /* Header responsive styles */
+  @media (max-width: 768px) {
+    .pos-header-container {
+      padding: 0 10px !important;
+      margin-bottom: 16px !important;
+    }
+    
+    .pos-header-content {
+      justify-content: center !important;
+    }
+    
+    .pos-header-text {
+      display: none !important;
+    }
+    
+    .pos-logo {
+      height: 50px !important;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .pos-header-container {
+      padding: 0 5px !important;
+      margin-bottom: 12px !important;
+    }
+    
+    .pos-logo {
+      height: 45px !important;
     }
   }
 `;
@@ -711,9 +741,42 @@ const responsiveStyles = `
         <div className="pos-container" style={{ ...styles.container, background: theme.background }}>
         <style>{animationStyles}</style>
         <style>{responsiveStyles}</style>
-        <h1 className="pos-header" style={{ ...styles.header, color: theme.text }}>
-          <span style={{ display: 'inline-block' }}>🛒</span> POS - Facturación FEL
-        </h1>
+        <div className="pos-header-container" style={{
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginBottom: '24px',
+  padding: '0 20px'
+}}>
+  <div className="pos-header-content" style={{
+    display: 'flex',
+    alignItems: 'center',
+    gap: '20px',
+    width: '100%'
+  }}>
+    <img 
+      src="https://cdn.shopify.com/s/files/1/0289/7264/6460/files/Adobe_Express_20230423_1933570_1_4_-Photoroom.png?v=1735621193"
+      alt="Logo"
+      className="pos-logo"
+      style={{
+        height: '60px',
+        width: 'auto',
+        filter: 'drop-shadow(0 0 2px white) drop-shadow(0 0 2px white) drop-shadow(0 0 2px white)',
+        objectFit: 'contain'
+      }}
+    />
+    <h1 className="pos-header-text" style={{ 
+      ...styles.header, 
+      color: theme.text,
+      margin: 0,
+      fontSize: '32px',
+      fontWeight: 'bold',
+      textShadow: isDarkMode ? '2px 2px 4px rgba(0,0,0,0.5)' : '2px 2px 4px rgba(0,0,0,0.1)'
+    }}>
+      POS - Facturación FEL
+    </h1>
+  </div>
+</div>
         {/* Botón de cambio de tema */}
         <div style={{ 
           position: 'fixed',
