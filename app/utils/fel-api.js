@@ -60,78 +60,108 @@ class FelAPI {
   }
 
   formatInvoiceData(orderData, nitData, phoneNumber, discountTotal = 0) {
-    // Calcular totales correctamente con descuento global
-    let subtotal = 0;
-    
-    const items = orderData.line_items.map((item) => {
-      const precio = parseFloat(item.price) || 0;
-      const cantidad = parseInt(item.quantity) || 1;
-      
-      // Sin descuento por item
-      const itemSubtotal = precio * cantidad;
-      subtotal += itemSubtotal;
-      
-      return {
-        qty: cantidad,
-        type: "B", // Bien
-        price: precio,
-        description: item.name || "Producto",
-        without_iva: 0, // Con IVA
-        discount: 0, // Sin descuento por item
-        is_discount_percentage: 0,
-        taxes: {
-          qty: null,
-          tax_code: null,
-          full_name: null,
-          short_name: null,
-          tax_amount: null,
-          taxable_amount: null
-        }
-      };
-    });
+  // Calcular totales correctamente
+  let subtotal = 0;
+  const discountGlobal = parseFloat(discountTotal) || 0;
+  
+  // Primero calcular el subtotal
+  orderData.line_items.forEach((item) => {
+    const precio = parseFloat(item.price) || 0;
+    const cantidad = parseInt(item.quantity) || 1;
+    subtotal += precio * cantidad;
+  });
 
-    // Aplicar descuento global
-    const totalConDescuento = subtotal - discountTotal;
+  // Calcular el porcentaje de descuento global
+  const porcentajeDescuento = subtotal > 0 ? (discountGlobal / subtotal) : 0;
+  
+  const items = orderData.line_items.map((item) => {
+    const precio = parseFloat(item.price) || 0;
+    const cantidad = parseInt(item.quantity) || 1;
     
-    // En Guatemala, el IVA es del 12%
-    const totalConIVA = totalConDescuento;
-    const totalSinIVA = totalConIVA / 1.12;
-    const totalIVA = totalConIVA - totalSinIVA;
-
-    const invoiceData = {
-      type: "FACT",
-      datetime_issue: new Date().toISOString().split('.')[0],
-      items: items,
-      total: parseFloat(totalConIVA.toFixed(2)),
-      total_tax: totalIVA.toFixed(2),
-      emails: orderData.email ? [{email: orderData.email}] : [],
-      emails_cc: [{email: "info@gruporevisa.net"}],
-      phones: [],
-      to_cf: nitData ? 0 : 1,
-      to: {
-        tax_code_type: "NIT",
-        tax_code: nitData?.tax_code || "CF",
-        tax_name: nitData?.tax_name || "CONSUMIDOR FINAL",
-        address: {
-          street: nitData?.address?.street || orderData.shipping_address?.address1 || null,
-          city: nitData?.address?.city || orderData.shipping_address?.city || null,
-          state: nitData?.address?.state || orderData.shipping_address?.province || null,
-          zip: nitData?.address?.zip || orderData.shipping_address?.zip || null,
-          country: nitData?.address?.country || "GT"
-        }
-      },
-      exempt_phrase: null
+    // Calcular el descuento proporcional para este item
+    const itemSubtotal = precio * cantidad;
+    const itemDescuento = itemSubtotal * porcentajeDescuento;
+    
+    return {
+      qty: cantidad,
+      type: "B", // Bien
+      price: precio,
+      description: item.name || "Producto",
+      without_iva: 0, // Con IVA (0 = incluye IVA)
+      discount: parseFloat(itemDescuento.toFixed(2)), // Descuento proporcional
+      is_discount_percentage: 0, // 0 = monto fijo, 1 = porcentaje
+      taxes: {
+        qty: null,
+        tax_code: null,
+        full_name: null,
+        short_name: null,
+        tax_amount: null,
+        taxable_amount: null
+      }
     };
+  });
 
-    console.log('Cálculos de totales:');
-    console.log('Subtotal:', subtotal);
-    console.log('Descuento total:', discountTotal);
-    console.log('Total con descuento:', totalConDescuento);
-    console.log('Total con IVA:', totalConIVA);
-    console.log('Total IVA:', totalIVA);
-    
-    return invoiceData;
-  }
+  // Calcular totales finales
+  const totalConDescuento = subtotal - discountGlobal;
+  
+  // En Guatemala, los precios ya incluyen IVA del 12%
+  // Total con IVA = totalConDescuento (porque los precios ya incluyen IVA)
+  // Total sin IVA = totalConDescuento / 1.12
+  // Monto del IVA = totalConDescuento - (totalConDescuento / 1.12)
+  
+  const totalConIVA = totalConDescuento;
+  const totalSinIVA = totalConIVA / 1.12;
+  const montoIVA = totalConIVA - totalSinIVA;
+
+  // Formatear la fecha actual
+  const fechaActual = new Date();
+  const año = fechaActual.getFullYear();
+  const mes = String(fechaActual.getMonth() + 1).padStart(2, '0');
+  const dia = String(fechaActual.getDate()).padStart(2, '0');
+  const hora = String(fechaActual.getHours()).padStart(2, '0');
+  const minuto = String(fechaActual.getMinutes()).padStart(2, '0');
+  const segundo = String(fechaActual.getSeconds()).padStart(2, '0');
+  const fechaFormateada = `${año}-${mes}-${dia}T${hora}:${minuto}:${segundo}`;
+
+  const invoiceData = {
+    type: "FACT",
+    currency: "GTQ",
+    datetime_issue: fechaFormateada,
+    items: items,
+    total: parseFloat(totalConIVA.toFixed(2)),
+    total_tax: parseFloat(montoIVA.toFixed(2)),
+    emails: orderData.email ? [{email: orderData.email}] : [],
+    emails_cc: [{email: "info@gruporevisa.net"}],
+    phones: phoneNumber ? [{phone: phoneNumber}] : [],
+    to_cf: nitData ? 0 : 1,
+    to: {
+      tax_code_type: "NIT",
+      tax_code: nitData?.tax_code || "CF",
+      tax_name: nitData?.tax_name || "CONSUMIDOR FINAL",
+      address: {
+        street: nitData?.address?.street || orderData.shipping_address?.address1 || null,
+        city: nitData?.address?.city || orderData.shipping_address?.city || null,
+        state: nitData?.address?.state || orderData.shipping_address?.province || null,
+        zip: nitData?.address?.zip || orderData.shipping_address?.zip || null,
+        country: nitData?.address?.country || "GT"
+      }
+    },
+    exempt_phrase: null
+  };
+
+  console.log('===== CÁLCULOS DE TOTALES FEL =====');
+  console.log('Subtotal sin descuento:', subtotal.toFixed(2));
+  console.log('Descuento global:', discountGlobal.toFixed(2));
+  console.log('Porcentaje de descuento:', (porcentajeDescuento * 100).toFixed(2) + '%');
+  console.log('Total con descuento:', totalConDescuento.toFixed(2));
+  console.log('Total con IVA (total):', totalConIVA.toFixed(2));
+  console.log('Monto del IVA (total_tax):', montoIVA.toFixed(2));
+  console.log('Total sin IVA:', totalSinIVA.toFixed(2));
+  console.log('Items con descuento:', items);
+  console.log('===================================');
+  
+  return invoiceData;
+}
 }
 
 // Exportar la clase

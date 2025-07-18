@@ -139,7 +139,6 @@ export async function action({ request }) {
                 firstName: nit?.tax_name || "CONSUMIDOR FINAL",
                 lastName: nit?.tax_code || "CF",
                 phone: phoneNumber,
-                tax_exempt: false,
                 tags: ["POS", "FEL", "NUEVO"],
                 addresses: [{
                   address1: nit?.address?.street || "Ciudad",
