@@ -26,23 +26,89 @@ export default function POSInterface() {
     details: ''
   });
   
-  // Estilos CSS mejorados
+  // Estados para el tema
+const [isDarkMode, setIsDarkMode] = useState(false);
+
+// Cargar preferencia del tema al iniciar (solo en cliente)
+useEffect(() => {
+  if (typeof window !== 'undefined') {
+    const savedTheme = localStorage.getItem('pos-theme');
+    if (savedTheme === 'dark') {
+      setIsDarkMode(true);
+    }
+  }
+}, []);
+
+// Función para cambiar tema
+const toggleTheme = () => {
+  const newTheme = !isDarkMode;
+  setIsDarkMode(newTheme);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('pos-theme', newTheme ? 'dark' : 'light');
+  }
+};
+ 
+// Definir temas
+const themes = {
+  light: {
+    background: 'linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%)',
+    cardBackground: 'white',
+    cardBorder: '#e0e0e0',
+    text: '#1a1a1a',
+    textSecondary: '#666',
+    inputBackground: '#f8f9fa',
+    inputBorder: '#e0e0e0',
+    shadowColor: 'rgba(0,0,0,0.1)',
+    dangerBackground: '#fee',
+    successBackground: '#e3f4e8',
+    warningBackground: '#fff3cd',
+    primaryGradient: 'linear-gradient(135deg, #008060 0%, #00a67e 100%)',
+    secondaryGradient: 'linear-gradient(135deg, #0066cc 0%, #0080ff 100%)',
+    purpleGradient: 'linear-gradient(135deg, #f8f0ff 0%, #f0e6ff 100%)',
+    orangeGradient: 'linear-gradient(135deg, #fff5e6 0%, #ffe0cc 100%)',
+    grayGradient: 'linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%)',
+  },
+  dark: {
+    background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
+    cardBackground: '#2a2a2a',
+    cardBorder: '#444',
+    text: '#f0f0f0',
+    textSecondary: '#b0b0b0',
+    inputBackground: '#1e1e1e',
+    inputBorder: '#444',
+    shadowColor: 'rgba(0,0,0,0.5)',
+    dangerBackground: '#4a1a1a',
+    successBackground: '#1a3a2a',
+    warningBackground: '#3a3a1a',
+    primaryGradient: 'linear-gradient(135deg, #00a67e 0%, #008060 100%)',
+    secondaryGradient: 'linear-gradient(135deg, #0080ff 0%, #0066cc 100%)',
+    purpleGradient: 'linear-gradient(135deg, #2a1a3a 0%, #3a2a4a 100%)',
+    orangeGradient: 'linear-gradient(135deg, #3a2a1a 0%, #4a3a2a 100%)',
+    grayGradient: 'linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%)',
+  }
+};
+
+// Obtener el tema actual
+const theme = isDarkMode ? themes.dark : themes.light;
+
+// Estilos CSS mejorados
 const styles = {
   container: {
     padding: '20px',
     maxWidth: '1400px',
     margin: '0 auto',
-    background: 'linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%)',
-    minHeight: '100vh'
+    background: theme.background,
+    minHeight: '100vh',
+    transition: 'background 0.3s ease'
   },
   
-  header: {
+   header: {
     fontSize: '32px',
     fontWeight: 'bold',
-    color: '#1a1a1a',
+    color: theme.text,
     marginBottom: '24px',
     textAlign: 'center',
-    textShadow: '2px 2px 4px rgba(0,0,0,0.1)'
+    textShadow: isDarkMode ? '2px 2px 4px rgba(0,0,0,0.5)' : '2px 2px 4px rgba(0,0,0,0.1)'
   },
   
   mainGrid: {
@@ -59,13 +125,14 @@ const styles = {
   },
   
   customerPanel: {
-    background: 'white',
+    background: theme.cardBackground,
     padding: '0',
     borderRadius: '16px',
-    boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+    boxShadow: `0 10px 30px ${theme.shadowColor}`,
     overflow: 'hidden',
-    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-    height: 'fit-content'
+    transition: 'all 0.3s ease',
+    height: 'fit-content',
+    border: `1px solid ${theme.cardBorder}`
   },
   
   customerHeader: {
@@ -115,14 +182,16 @@ const styles = {
     display: 'block',
     marginBottom: '8px',
     fontWeight: '600',
-    color: '#333',
+    color: theme.text,
     fontSize: '14px',
     letterSpacing: '0.5px'
   },
   
   inputWrapper: {
     display: 'flex',
-    gap: '8px'
+    gap: '8px',
+    alignItems: 'stretch',  // ← AGREGAR ESTA LÍNEA
+    width: '100%'  // ← AGREGAR ESTA LÍNEA
   },
   
   input: {
@@ -133,7 +202,9 @@ const styles = {
     fontSize: '15px',
     transition: 'all 0.3s ease',
     outline: 'none',
-    backgroundColor: '#f8f9fa'
+    backgroundColor: '#f8f9fa',
+    width: '100%',  // ← AGREGAR ESTA LÍNEA
+  boxSizing: 'border-box'  // ← AGREGAR ESTA LÍNEA
   },
   
   button: {
@@ -146,7 +217,9 @@ const styles = {
     fontWeight: 'bold',
     fontSize: '15px',
     transition: 'all 0.3s ease',
-    boxShadow: '0 4px 12px rgba(0,128,96,0.3)'
+    boxShadow: '0 4px 12px rgba(0,128,96,0.3)',
+    whiteSpace: 'nowrap',  // ← AGREGAR ESTA LÍNEA
+    flexShrink: 0  // ← AGREGAR ESTA LÍNEA
   },
   
   customerList: {
@@ -192,7 +265,8 @@ const styles = {
     background: 'linear-gradient(135deg, #e3f4e8 0%, #d1ead8 100%)',
     borderRadius: '12px',
     border: '2px solid #00a67e',
-    animation: 'fadeIn 0.5s ease'
+    animation: 'fadeIn 0.5s ease',
+    position: 'relative'  // ← AGREGAR ESTA LÍNEA
   },
   // Estilos responsive
   mobileContainer: {
@@ -214,8 +288,14 @@ const styles = {
   }
 };
 
+
 // Agregar estas animaciones CSS
 const animationStyles = `
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -628,18 +708,64 @@ const responsiveStyles = `
         />
       )}
 
-      <div className="pos-container" style={styles.container}>
+        <div className="pos-container" style={{ ...styles.container, background: theme.background }}>
         <style>{animationStyles}</style>
         <style>{responsiveStyles}</style>
-        <h1 className="pos-header" style={styles.header}>
+        <h1 className="pos-header" style={{ ...styles.header, color: theme.text }}>
           <span style={{ display: 'inline-block' }}>🛒</span> POS - Facturación FEL
         </h1>
+        {/* Botón de cambio de tema */}
+        <div style={{ 
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          zIndex: 1000
+        }}>
+          <button
+            onClick={toggleTheme}
+            style={{
+              padding: '12px 20px',
+              background: isDarkMode 
+                ? 'linear-gradient(135deg, #ffd700 0%, #ffed4e 100%)' 
+                : 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
+              color: isDarkMode ? '#1a1a1a' : '#f0f0f0',
+              border: 'none',
+              borderRadius: '30px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: `0 4px 12px ${theme.shadowColor}`,
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+              e.currentTarget.style.boxShadow = `0 6px 16px ${theme.shadowColor}`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = `0 4px 12px ${theme.shadowColor}`;
+            }}
+          >
+            <span style={{ fontSize: '20px' }}>
+              {isDarkMode ? '☀️' : '🌙'}
+            </span>
+            <span>{isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}</span>
+          </button>
+        </div>
         
         <div className="main-grid" style={styles.mainGrid}>
           {/* Panel de cliente mejorado */}
           <div
             className="customer-panel"
-            style={styles.customerPanel}
+            style={{
+              ...styles.customerPanel,
+              background: theme.cardBackground,
+              border: `1px solid ${theme.cardBorder}`,
+              boxShadow: `0 10px 30px ${theme.shadowColor}`
+            }}
             onMouseEnter={(e) => {
               if (window.innerWidth > 768) {
                 e.currentTarget.style.transform = 'translateY(-4px)';
@@ -682,45 +808,114 @@ const responsiveStyles = `
               </div>
 
               {/* Panel de Cliente Existente mejorado */}
-              {customerType === 'existing' && (
-                <div style={{ animation: 'fadeIn 0.5s ease' }}>
-                  <div style={styles.inputGroup}>
-                    <label style={styles.label}>
-                      🔍 Buscar Cliente
-                    </label>
-                    <div style={styles.inputWrapper}>
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Buscar por nombre o NIT..."
-                        style={styles.input}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = '#008060';
-                          e.target.style.boxShadow = '0 0 0 3px rgba(0,128,96,0.2)';
-                          e.target.style.backgroundColor = 'white';
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = '#e0e0e0';
-                          e.target.style.boxShadow = 'none';
-                          e.target.style.backgroundColor = '#f8f9fa';
-                        }}
-                      />
-                      <button
-                        onClick={searchExistingCustomers}
-                        disabled={searching}
-                        style={{
-                          ...styles.button,
-                          opacity: searching ? 0.7 : 1,
-                          cursor: searching ? 'not-allowed' : 'pointer'
-                        }}
-                        onMouseEnter={(e) => !searching && (e.target.style.transform = 'scale(1.05)')}
-                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-                      >
-                        {searching ? '⏳ Buscando...' : '🔍 Buscar'}
-                      </button>
-                    </div>
-                  </div>
+{customerType === 'existing' && (
+  <div style={{ animation: 'fadeIn 0.5s ease' }}>
+      <div style={{
+        background: isDarkMode
+          ? 'linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%)'
+          : theme.purpleGradient,
+        padding: '20px',
+        borderRadius: '12px',
+        border: `2px solid ${theme.cardBorder}`,
+        marginBottom: '20px'
+    }}>
+      <label style={{
+        ...styles.label,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        marginBottom: '12px'
+      }}>
+        <span style={{ fontSize: '20px' }}>🔍</span>
+        <span>Buscar Cliente</span>
+      </label>
+      
+      <div style={styles.inputWrapper}>
+        <div style={{ position: 'relative', flex: 1 }}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por nombre o NIT..."
+            style={{
+              ...styles.input,
+              paddingLeft: '48px',
+              fontSize: '16px',
+              backgroundColor: isDarkMode ? theme.inputBackground : 'white',
+              borderColor: theme.inputBorder,
+              color: theme.text
+            }}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                searchExistingCustomers();
+              }
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#008060';
+              e.target.style.boxShadow = '0 0 0 3px rgba(0,128,96,0.2)';
+              e.target.style.transform = 'scale(1.01)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#e0e0e0';
+              e.target.style.boxShadow = 'none';
+              e.target.style.transform = 'scale(1)';
+            }}
+          />
+          
+          {/* Icono de búsqueda dentro del input */}
+          <div style={{
+            position: 'absolute',
+            left: '16px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            fontSize: '20px',
+            color: '#999'
+          }}>
+            🔍
+          </div>
+        </div>
+        
+        <button
+          onClick={searchExistingCustomers}
+          disabled={searching}
+          style={{
+            ...styles.button,
+            opacity: searching ? 0.7 : 1,
+            cursor: searching ? 'not-allowed' : 'pointer',
+            minWidth: '140px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
+          }}
+          onMouseEnter={(e) => {
+            if (!searching) {
+              e.target.style.transform = 'scale(1.05)';
+              e.target.style.boxShadow = '0 6px 16px rgba(0,128,96,0.4)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.transform = 'scale(1)';
+            e.target.style.boxShadow = '0 4px 12px rgba(0,128,96,0.3)';
+          }}
+        >
+          {searching ? (
+            <>
+              <span style={{ 
+                display: 'inline-block',
+                animation: 'spin 1s linear infinite'
+              }}>⏳</span>
+              <span>Buscando...</span>
+            </>
+          ) : (
+            <>
+              <span>🔍</span>
+              <span>Buscar</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
 
                   {/* Lista de clientes mejorada */}
                   {existingCustomers.length > 0 && !selectedCustomer && (
@@ -766,118 +961,265 @@ const responsiveStyles = `
                   )}
 
                   {/* Cliente seleccionado mejorado */}
-                  {selectedCustomer && (
-                    <div style={styles.selectedCustomer}>
-                      <div style={{
-                        position: 'absolute',
-                        top: '-12px',
-                        right: '16px',
-                        background: '#00a67e',
-                        color: 'white',
-                        padding: '4px 12px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: 'bold'
-                      }}>
-                        ✓ Seleccionado
-                      </div>
-                      <strong style={{ fontSize: '16px', color: '#008060' }}>Cliente:</strong>
-                      <p style={{ margin: '8px 0', fontSize: '18px', fontWeight: 'bold' }}>{selectedCustomer.displayName}</p>
-                      <p style={{ margin: '4px 0', color: '#666' }}>📄 NIT: {selectedCustomer.nit}</p>
-                      <p style={{ margin: '4px 0', color: '#666' }}>📱 Tel: {selectedCustomer.phone || 'Sin teléfono'}</p>
-                      <button
-                        onClick={() => {
-                          setSelectedCustomer(null);
-                          setPhoneNumber('');
-                          setExistingCustomers([]);
-                          setSearchQuery('');
-                        }}
-                        style={{
-                          marginTop: '12px',
-                          padding: '8px 16px',
-                          background: '#ff4444',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '8px',
-                          fontSize: '13px',
-                          cursor: 'pointer',
-                          transition: 'all 0.3s ease'
-                        }}
-                        onMouseEnter={(e) => e.target.style.background = '#ff6666'}
-                        onMouseLeave={(e) => e.target.style.background = '#ff4444'}
-                      >
-                        ✕ Cambiar cliente
-                      </button>
-                    </div>
-                  )}
+{selectedCustomer && (
+  <div style={{
+    ...styles.selectedCustomer,
+    animation: 'slideIn 0.3s ease'
+  }}>
+    <div style={{
+      position: 'absolute',
+      top: '-12px',
+      right: '16px',
+      background: 'linear-gradient(135deg, #00a67e 0%, #008060 100%)',
+      color: 'white',
+      padding: '6px 16px',
+      borderRadius: '12px',
+      fontSize: '12px',
+      fontWeight: 'bold',
+      boxShadow: '0 2px 8px rgba(0,128,96,0.3)'
+    }}>
+      ✓ Cliente Seleccionado
+    </div>
+    
+    <div style={{ display: 'flex', gap: '16px', alignItems: 'start' }}>
+      <div style={{
+        width: '60px',
+        height: '60px',
+        background: 'linear-gradient(135deg, #008060 0%, #00a67e 100%)',
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '28px',
+        color: 'white',
+        boxShadow: '0 4px 12px rgba(0,128,96,0.3)'
+      }}>
+        👤
+      </div>
+      
+      <div style={{ flex: 1 }}>
+        <h3 style={{ 
+          margin: '0 0 8px 0', 
+          fontSize: '20px', 
+          color: '#008060',
+          fontWeight: 'bold' 
+        }}>
+          {selectedCustomer.displayName}
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
+            📄 <strong>NIT:</strong> {selectedCustomer.nit}
+          </p>
+          <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
+            📱 <strong>Tel:</strong> {selectedCustomer.phone || 'Sin teléfono'}
+          </p>
+          {selectedCustomer.email && (
+            <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
+              ✉️ <strong>Email:</strong> {selectedCustomer.email}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+    
+    <button
+      onClick={() => {
+        setSelectedCustomer(null);
+        setPhoneNumber('');
+        setExistingCustomers([]);
+        setSearchQuery('');
+      }}
+      style={{
+        marginTop: '16px',
+        padding: '8px 16px',
+        background: 'linear-gradient(135deg, #ff4444 0%, #ff6666 100%)',
+        color: 'white',
+        border: 'none',
+        borderRadius: '8px',
+        fontSize: '13px',
+        cursor: 'pointer',
+        transition: 'all 0.3s ease',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        boxShadow: '0 2px 8px rgba(255,68,68,0.3)'
+      }}
+      onMouseEnter={(e) => {
+        e.target.style.transform = 'scale(1.05)';
+        e.target.style.boxShadow = '0 4px 12px rgba(255,68,68,0.4)';
+      }}
+      onMouseLeave={(e) => {
+        e.target.style.transform = 'scale(1)';
+        e.target.style.boxShadow = '0 2px 8px rgba(255,68,68,0.3)';
+      }}
+    >
+      <span>✕</span>
+      <span>Cambiar cliente</span>
+    </button>
+  </div>
+)}
                 </div>
               )}
 
               {/* Panel de Cliente Nuevo mejorado */}
-              {customerType === 'new' && (
-                <div style={{ animation: 'fadeIn 0.5s ease' }}>
-                  <div style={styles.inputGroup}>
-                    <label style={styles.label}>
-                      📄 NIT del Cliente
-                    </label>
-                    <div style={styles.inputWrapper}>
-                      <input
-                        type="text"
-                        value={nit}
-                        onChange={(e) => setNit(e.target.value)}
-                        placeholder="Ej: 12345678"
-                        style={styles.input}
-                        onFocus={(e) => {
-                          e.target.style.borderColor = '#008060';
-                          e.target.style.boxShadow = '0 0 0 3px rgba(0,128,96,0.2)';
-                          e.target.style.backgroundColor = 'white';
-                        }}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = '#e0e0e0';
-                          e.target.style.boxShadow = 'none';
-                          e.target.style.backgroundColor = '#f8f9fa';
-                        }}
-                      />
-                      <button
-                        onClick={searchNIT}
-                        disabled={!nit || searching}
-                        style={{
-                          ...styles.button,
-                          opacity: !nit || searching ? 0.7 : 1,
-                          cursor: !nit || searching ? 'not-allowed' : 'pointer'
-                        }}
-                        onMouseEnter={(e) => nit && !searching && (e.target.style.transform = 'scale(1.05)')}
-                        onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
-                      >
-                        {searching ? '⏳ Buscando...' : '🔍 Buscar'}
-                      </button>
-                    </div>
-                    <small style={{ color: '#666', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                      Ingrese el NIT sin guiones ni espacios
-                    </small>
-                  </div>
+{customerType === 'new' && (
+  <div style={{ animation: 'fadeIn 0.5s ease' }}>
+    <div style={{
+      background: isDarkMode
+        ? 'linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%)'
+        : 'linear-gradient(135deg, #fff5f0 0%, #ffe6e0 100%)',
+      padding: '20px',
+      borderRadius: '12px',
+      border: '2px solid #e0e0e0',
+      marginBottom: '20px'
+    }}>
+      <label style={{
+        ...styles.label,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        marginBottom: '12px'
+      }}>
+        <span style={{ fontSize: '20px' }}>📄</span>
+        <span>NIT del Cliente</span>
+        {nit && !nitSearchResult && !searching && (
+          <span style={{
+            marginLeft: 'auto',
+            padding: '4px 8px',
+            background: isDarkMode
+              ? 'linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%)'
+              : 'linear-gradient(135deg, #f8f0ff 0%, #f0e6ff 100%)',
+            color: 'white',
+            borderRadius: '6px',
+            fontSize: '12px'
+          }}>
+            Pendiente validación
+          </span>
+        )}
+      </label>
+      
+      <div style={styles.inputWrapper}>
+        <div style={{ position: 'relative', flex: 1 }}>
+          <input
+            type="text"
+            value={nit}
+            onChange={(e) => setNit(e.target.value.replace(/\D/g, ''))}
+            placeholder="Ej: 12345678"
+            style={{
+              ...styles.input,
+              paddingLeft: '48px',
+              fontSize: '16px',
+              letterSpacing: '1px',
+              backgroundColor: isDarkMode ? theme.inputBackground : 'white',
+              borderColor: theme.inputBorder,
+              color: theme.text
+            }}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && nit) {
+                searchNIT();
+              }
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#ff8800';
+              e.target.style.boxShadow = '0 0 0 3px rgba(255,136,0,0.2)';
+              e.target.style.transform = 'scale(1.01)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#e0e0e0';
+              e.target.style.boxShadow = 'none';
+              e.target.style.transform = 'scale(1)';
+            }}
+          />
+          
+          {/* Icono de documento dentro del input */}
+          <div style={{
+            position: 'absolute',
+            left: '16px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            fontSize: '20px',
+            color: '#ff8800'
+          }}>
+            📄
+          </div>
+        </div>
+        
+        <button
+          onClick={searchNIT}
+          disabled={!nit || searching}
+          style={{
+            ...styles.button,
+            background: !nit || searching 
+              ? '#ccc' 
+              : 'linear-gradient(135deg, #ff8800 0%, #ff6600 100%)',
+            opacity: !nit || searching ? 0.7 : 1,
+            cursor: !nit || searching ? 'not-allowed' : 'pointer',
+            minWidth: '140px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
+          }}
+          onMouseEnter={(e) => {
+            if (nit && !searching) {
+              e.target.style.transform = 'scale(1.05)';
+              e.target.style.boxShadow = '0 6px 16px rgba(255,136,0,0.4)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.transform = 'scale(1)';
+            e.target.style.boxShadow = '0 4px 12px rgba(255,136,0,0.3)';
+          }}
+        >
+          {searching ? (
+            <>
+              <span style={{ 
+                display: 'inline-block',
+                animation: 'spin 1s linear infinite'
+              }}>⏳</span>
+              <span>Validando...</span>
+            </>
+          ) : (
+            <>
+              <span>🔍</span>
+              <span>Buscar</span>
+            </>
+          )}
+        </button>
+      </div>
+      
+      <small style={{ 
+        color: '#666', 
+        fontSize: '12px', 
+        marginTop: '8px', 
+        display: 'block',
+        paddingLeft: '4px'
+      }}>
+        Ingrese el NIT sin guiones ni espacios (se validará automáticamente)
+      </small>
+    </div>
 
                   {/* Resultado de búsqueda NIT mejorado */}
                   {nitSearchResult && (
-                    <div style={styles.nitResult}>
-                      <div style={{
-                        position: 'absolute',
-                        top: '-12px',
-                        right: '16px',
-                        background: '#00a67e',
-                        color: 'white',
-                        padding: '4px 12px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: 'bold'
-                      }}>
-                        ✓ Encontrado
-                      </div>
-                      <strong style={{ fontSize: '16px', color: '#008060' }}>Cliente encontrado:</strong>
-                      <p style={{ margin: '8px 0', fontSize: '18px', fontWeight: 'bold' }}>{nitSearchResult.tax_name}</p>
-                      <p style={{ margin: '4px 0', color: '#666' }}>📄 NIT: {nitSearchResult.tax_code}</p>
-                    </div>
-                  )}
+  <div style={styles.nitResult}>
+    <div style={{
+      position: 'absolute',
+      top: '-12px',
+      right: '16px',
+      background: '#00a67e',
+      color: 'white',
+      padding: '4px 12px',
+      borderRadius: '12px',
+      fontSize: '12px',
+      fontWeight: 'bold'
+    }}>
+      ✓ Encontrado
+    </div>
+    <strong style={{ fontSize: '16px', color: '#008060' }}>Cliente encontrado:</strong>
+    <p style={{ margin: '8px 0', fontSize: '18px', fontWeight: 'bold' }}>{nitSearchResult.tax_name}</p>
+    <p style={{ margin: '4px 0', color: '#666' }}>📄 NIT: {nitSearchResult.tax_code}</p>
+  </div>
+)}
                 </div>
               )}
 
@@ -890,55 +1232,111 @@ const responsiveStyles = `
               )}
 
               {/* Número de WhatsApp mejorado */}
-              <div style={{ marginTop: '24px' }}>
-                <label style={styles.label}>
-                  📱 Número de WhatsApp
-                </label>
-                <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(formatPhoneNumber(e.target.value))}
-                  placeholder="+502 12345678"
-                  disabled={customerType === 'existing' && selectedCustomer && selectedCustomer.phone}
-                  style={{
-                    ...styles.input,
-                    width: '100%',
-                    background: (customerType === 'existing' && selectedCustomer && selectedCustomer.phone) ? '#f4f4f4' : '#f8f9fa',
-                    cursor: (customerType === 'existing' && selectedCustomer && selectedCustomer.phone) ? 'not-allowed' : 'text'
-                  }}
-                  onFocus={(e) => {
-                    if (!(customerType === 'existing' && selectedCustomer && selectedCustomer.phone)) {
-                      e.target.style.borderColor = '#008060';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(0,128,96,0.2)';
-                      e.target.style.backgroundColor = 'white';
-                    }
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = '#e0e0e0';
-                    e.target.style.boxShadow = 'none';
-                    if (!(customerType === 'existing' && selectedCustomer && selectedCustomer.phone)) {
-                      e.target.style.backgroundColor = '#f8f9fa';
-                    }
-                  }}
-                />
-                <small style={{ color: '#666', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                  {customerType === 'existing' && selectedCustomer && selectedCustomer.phone
-                    ? '✓ Usando el teléfono del cliente registrado'
-                    : 'Incluya el código de país (+502 para Guatemala)'}
-                </small>
-              </div>
+              {/* Número de WhatsApp mejorado */}
+<div style={{ 
+  marginTop: '24px',
+  padding: '20px',
+  background: isDarkMode
+    ? 'linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%)'
+    : 'linear-gradient(135deg, #f0f8ff 0%, #e6f4ff 100%)',
+  borderRadius: '12px',
+  border: `2px solid ${theme.cardBorder}`
+}}>
+  <label style={{
+    ...styles.label,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '12px'
+  }}>
+    <span style={{ fontSize: '20px' }}>📱</span>
+    <span>Número de WhatsApp</span>
+    {phoneNumber && (
+      <span style={{
+        marginLeft: 'auto',
+        padding: '4px 8px',
+        background: '#00a67e',
+        color: 'white',
+        borderRadius: '6px',
+        fontSize: '12px',
+        fontWeight: 'bold'
+      }}>
+        ✓ Válido
+      </span>
+    )}
+  </label>
+  
+  <div style={{ position: 'relative' }}>
+    <input
+      type="tel"
+      value={phoneNumber}
+      onChange={(e) => setPhoneNumber(formatPhoneNumber(e.target.value))}
+      placeholder="+502 12345678"
+      disabled={customerType === 'existing' && selectedCustomer && selectedCustomer.phone}
+      style={{
+        ...styles.input,
+        paddingLeft: '48px',
+        fontSize: '16px',
+        fontWeight: '500',
+        backgroundColor: isDarkMode ? theme.inputBackground : 'white',
+        borderColor: theme.inputBorder,
+        color: theme.text,
+        cursor: (customerType === 'existing' && selectedCustomer && selectedCustomer.phone) 
+          ? 'not-allowed' 
+          : 'text'
+      }}
+      onFocus={(e) => {
+        if (!(customerType === 'existing' && selectedCustomer && selectedCustomer.phone)) {
+          e.target.style.borderColor = '#008060';
+          e.target.style.boxShadow = '0 0 0 3px rgba(0,128,96,0.2)';
+          e.target.style.transform = 'scale(1.01)';
+        }
+      }}
+      onBlur={(e) => {
+        e.target.style.borderColor = '#e0e0e0';
+        e.target.style.boxShadow = 'none';
+        e.target.style.transform = 'scale(1)';
+      }}
+    />
+    
+    {/* Icono de WhatsApp dentro del input */}
+    <div style={{
+      position: 'absolute',
+      left: '16px',
+      top: '50%',
+      transform: 'translateY(-50%)',
+      fontSize: '20px',
+      color: '#25D366'
+    }}>
+      📱
+    </div>
+  </div>
+  
+  <small style={{ 
+    color: '#666', 
+    fontSize: '12px', 
+    marginTop: '8px', 
+    display: 'block',
+    paddingLeft: '4px'
+  }}>
+    {customerType === 'existing' && selectedCustomer && selectedCustomer.phone
+      ? '✓ Usando el teléfono del cliente registrado'
+      : 'Incluya el código de país (+502 para Guatemala)'}
+  </small>
+</div>
             </div>
           </div>
 
           {/* Panel de productos mejorado */}
-          <div 
+          <div
             style={{
-              background: 'white',
+              background: theme.cardBackground,
               padding: '0',
               borderRadius: '16px',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+              boxShadow: `0 10px 30px ${theme.shadowColor}`,
               overflow: 'hidden',
-              transition: 'transform 0.3s ease, box-shadow 0.3s ease'
+              transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+              border: `1px solid ${theme.cardBorder}`
             }}
             data-product-selector
             onMouseEnter={(e) => {
@@ -965,17 +1363,19 @@ const responsiveStyles = `
             </div>
             <div style={{ padding: '24px' }}>
               <ProductSelector 
-                onProductsChange={setSelectedProducts} 
-                onDiscountChange={handleDiscountChange}
-                selectedProducts={selectedProducts}
-                onProcessSale={processSale}
-                processing={processing}
-                canProcess={
-                  selectedProducts.length > 0 && 
-                  ((customerType === 'existing' && selectedCustomer) ||
-                  (customerType === 'new' && nitSearchResult))
-                }
-              />
+  onProductsChange={setSelectedProducts} 
+  onDiscountChange={handleDiscountChange}
+  selectedProducts={selectedProducts}
+  onProcessSale={processSale}
+  processing={processing}
+  canProcess={
+    selectedProducts.length > 0 && 
+    ((customerType === 'existing' && selectedCustomer) ||
+    (customerType === 'new' && nitSearchResult))
+  }
+  isDarkMode={isDarkMode}
+  theme={theme}
+/>
             </div>
           </div>
         </div>
