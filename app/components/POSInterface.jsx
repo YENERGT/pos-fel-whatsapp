@@ -827,7 +827,7 @@ const processSale = async () => {
         <div style={{ 
           position: 'fixed',
           top: '20px',
-          right: '20px',
+          left: '20px',
           zIndex: 1000
         }}>
           <button
@@ -898,7 +898,7 @@ const processSale = async () => {
                   className="tab-button"
                   style={styles.tab(customerType === 'existing')}
                   onClick={() => {
-                    setCustomerType('existing'); setError(''); setNitSearchResult(null); setSelectedCustomer(null); setPhoneError('');
+                    setCustomerType('existing'); setError(''); setNitSearchResult(null); setSelectedCustomer(null); setPhoneError(''); setPhoneNumber('');
                   }}
                 >
                   <span style={{ marginRight: '8px' }}>🔍</span>
@@ -908,7 +908,7 @@ const processSale = async () => {
                   className="tab-button"
                   style={styles.tab(customerType === 'new')}
                   onClick={() => {
-                    setCustomerType('new'); setError(''); setExistingCustomers([]); setSelectedCustomer(null); setPhoneError('');
+                    setCustomerType('new'); setError(''); setExistingCustomers([]); setSelectedCustomer(null); setPhoneError(''); setPhoneNumber('');
                   }}
                 >
                   <span style={{ marginRight: '8px' }}>➕</span>

@@ -200,18 +200,19 @@ export default function ProductSelector({
   };
 
   const handleDiscountChange = (value, type) => {
-    const numericValue = parseFloat(value) || 0;
-    setGlobalDiscount(numericValue);
-    setDiscountType(type);
-    
-    const discountAmount = type === '%' 
-      ? calculateSubtotal() * (numericValue / 100)
-      : numericValue;
-    
-    if (onDiscountChange) {
-      onDiscountChange(discountAmount);
-    }
-  };
+  // Si el valor está vacío, establecer 0 pero no mostrarlo
+  const numericValue = value === '' ? 0 : parseFloat(value) || 0;
+  setGlobalDiscount(numericValue);
+  setDiscountType(type);
+  
+  const discountAmount = type === '%' 
+    ? calculateSubtotal() * (numericValue / 100)
+    : numericValue;
+  
+  if (onDiscountChange) {
+    onDiscountChange(discountAmount);
+  }
+};
 
   // Función para agregar producto personalizado
   const addCustomProduct = () => {
@@ -903,9 +904,9 @@ export default function ProductSelector({
           <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch' }}>
             <div style={{ position: 'relative', flex: 1 }}>
               <input
-                type="number"
-                value={globalDiscount}
-                onChange={(e) => handleDiscountChange(parseFloat(e.target.value) || 0, discountType)}
+  type="number"
+  value={globalDiscount === 0 ? '' : globalDiscount}
+  onChange={(e) => handleDiscountChange(e.target.value, discountType)}
                 style={{
                   width: '100%',
                   padding: '12px 16px',
@@ -922,6 +923,9 @@ export default function ProductSelector({
                 min="0"
                 step="0.01"
                 onFocus={(e) => {
+                  if (e.target.value === '0' || e.target.value === 0) {
+      e.target.value = '';
+                  }
                   e.target.style.borderColor = '#ff6600';
                   e.target.style.boxShadow = '0 0 0 3px rgba(255,102,0,0.2)';
                 }}
