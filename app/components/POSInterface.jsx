@@ -17,6 +17,8 @@ export default function POSInterface() {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
+  const [checkingPhone, setCheckingPhone] = useState(false);
   
   // Estados para notificaciones
   const [notification, setNotification] = useState({
@@ -608,6 +610,31 @@ const responsiveStyles = `
     return value;
   };
 
+  // Verificar si el teléfono ya existe
+const checkPhoneDuplicate = async (phoneToCheck) => {
+  if (!phoneToCheck || phoneToCheck.length < 8) return;
+  
+  setCheckingPhone(true);
+  setPhoneError('');
+  
+  try {
+    const response = await fetch(`/api/check-phone?phone=${encodeURIComponent(phoneToCheck)}`);
+    const data = await response.json();
+    
+    if (data.success && data.exists) {
+      setPhoneError(`Este número ya pertenece a: ${data.customer.name}`);
+      return false;
+    }
+    
+    return true;
+  } catch (err) {
+    console.error('Error verificando teléfono:', err);
+    return true; // En caso de error, permitir continuar
+  } finally {
+    setCheckingPhone(false);
+  }
+};
+
   // Limpiar formulario completamente
   const resetForm = () => {
     // Resetear todos los estados
@@ -636,25 +663,42 @@ const responsiveStyles = `
   };
 
   // Procesar venta
-  const processSale = async () => {
-    if (selectedProducts.length === 0) {
-      showNotification('error', 'Debe seleccionar al menos un producto');
+const processSale = async () => {
+  if (selectedProducts.length === 0) {
+    showNotification('error', 'Debe seleccionar al menos un producto');
+    return;
+  }
+
+  // Validar cliente
+  if (customerType === 'existing' && !selectedCustomer) {
+    showNotification('error', 'Debe seleccionar un cliente');
+    return;
+  }
+
+  if (customerType === 'new' && !phoneNumber) {
+    showNotification('error', 'Debe ingresar un número de WhatsApp');
+    return;
+  }
+
+  // Validar que no haya error de teléfono duplicado
+  if (customerType === 'new' && phoneError) {
+    showNotification('error', 'El número de WhatsApp ya está registrado');
+    return;
+  }
+
+  // Verificar una vez más antes de procesar (para clientes nuevos)
+  if (customerType === 'new' && phoneNumber) {
+    const isPhoneValid = await checkPhoneDuplicate(phoneNumber);
+    if (!isPhoneValid) {
+      showNotification('error', 'El número de WhatsApp ya está registrado');
       return;
     }
+  }
 
-    // Validar cliente
-    if (customerType === 'existing' && !selectedCustomer) {
-      showNotification('error', 'Debe seleccionar un cliente');
-      return;
-    }
+  setProcessing(true);
+  setError('');
 
-    if (customerType === 'new' && !phoneNumber) {
-      showNotification('error', 'Debe ingresar un número de WhatsApp');
-      return;
-    }
-
-    setProcessing(true);
-    setError('');
+  // ... resto del código de processSale ...
 
     try {
       const requestData = {
@@ -852,7 +896,7 @@ const responsiveStyles = `
                   className="tab-button"
                   style={styles.tab(customerType === 'existing')}
                   onClick={() => {
-                    setCustomerType('existing'); setError(''); setNitSearchResult(null); setSelectedCustomer(null);
+                    setCustomerType('existing'); setError(''); setNitSearchResult(null); setSelectedCustomer(null); setPhoneError('');
                   }}
                 >
                   <span style={{ marginRight: '8px' }}>🔍</span>
@@ -862,7 +906,7 @@ const responsiveStyles = `
                   className="tab-button"
                   style={styles.tab(customerType === 'new')}
                   onClick={() => {
-                    setCustomerType('new'); setError(''); setExistingCustomers([]); setSelectedCustomer(null);
+                    setCustomerType('new'); setError(''); setExistingCustomers([]); setSelectedCustomer(null); setPhoneError('');
                   }}
                 >
                   <span style={{ marginRight: '8px' }}>➕</span>
@@ -1314,7 +1358,7 @@ const responsiveStyles = `
   }}>
     <span style={{ fontSize: '20px' }}>📱</span>
     <span>Número de WhatsApp</span>
-    {phoneNumber && (
+    {phoneNumber && !phoneError && !checkingPhone && (
       <span style={{
         marginLeft: 'auto',
         padding: '4px 8px',
@@ -1327,13 +1371,36 @@ const responsiveStyles = `
         ✓ Válido
       </span>
     )}
+    {checkingPhone && (
+      <span style={{
+        marginLeft: 'auto',
+        padding: '4px 8px',
+        background: '#ff8800',
+        color: 'white',
+        borderRadius: '6px',
+        fontSize: '12px',
+        fontWeight: 'bold'
+      }}>
+        Verificando...
+      </span>
+    )}
   </label>
   
   <div style={{ position: 'relative' }}>
     <input
       type="tel"
       value={phoneNumber}
-      onChange={(e) => setPhoneNumber(formatPhoneNumber(e.target.value))}
+      onChange={(e) => {
+        const formatted = formatPhoneNumber(e.target.value);
+        setPhoneNumber(formatted);
+        setPhoneError(''); // Limpiar error al escribir
+      }}
+      onBlur={(e) => {
+        // Verificar duplicado solo para clientes nuevos
+        if (customerType === 'new' && phoneNumber) {
+          checkPhoneDuplicate(phoneNumber);
+        }
+      }}
       placeholder="+502 12345678"
       disabled={customerType === 'existing' && selectedCustomer && selectedCustomer.phone}
       style={{
@@ -1342,7 +1409,7 @@ const responsiveStyles = `
         fontSize: '16px',
         fontWeight: '500',
         backgroundColor: isDarkMode ? theme.inputBackground : 'white',
-        borderColor: theme.inputBorder,
+        borderColor: phoneError ? '#ff4444' : theme.inputBorder,
         color: theme.text,
         cursor: (customerType === 'existing' && selectedCustomer && selectedCustomer.phone) 
           ? 'not-allowed' 
@@ -1350,15 +1417,12 @@ const responsiveStyles = `
       }}
       onFocus={(e) => {
         if (!(customerType === 'existing' && selectedCustomer && selectedCustomer.phone)) {
-          e.target.style.borderColor = '#008060';
-          e.target.style.boxShadow = '0 0 0 3px rgba(0,128,96,0.2)';
+          e.target.style.borderColor = phoneError ? '#ff4444' : '#008060';
+          e.target.style.boxShadow = phoneError 
+            ? '0 0 0 3px rgba(255,68,68,0.2)' 
+            : '0 0 0 3px rgba(0,128,96,0.2)';
           e.target.style.transform = 'scale(1.01)';
         }
-      }}
-      onBlur={(e) => {
-        e.target.style.borderColor = '#e0e0e0';
-        e.target.style.boxShadow = 'none';
-        e.target.style.transform = 'scale(1)';
       }}
     />
     
@@ -1369,14 +1433,33 @@ const responsiveStyles = `
       top: '50%',
       transform: 'translateY(-50%)',
       fontSize: '20px',
-      color: '#25D366'
+      color: phoneError ? '#ff4444' : '#25D366'
     }}>
       📱
     </div>
   </div>
   
+  {/* Mensaje de error si el teléfono ya existe */}
+  {phoneError && (
+    <div style={{
+      marginTop: '8px',
+      padding: '8px 12px',
+      background: '#fee',
+      borderRadius: '6px',
+      color: '#ff4444',
+      fontSize: '13px',
+      fontWeight: 'bold',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px'
+    }}>
+      <span>⚠️</span>
+      <span>{phoneError}</span>
+    </div>
+  )}
+  
   <small style={{ 
-    color: '#666', 
+    color: phoneError ? '#ff4444' : '#666', 
     fontSize: '12px', 
     marginTop: '8px', 
     display: 'block',
