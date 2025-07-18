@@ -181,6 +181,7 @@ export async function action({ request }) {
 
     // Paso 2: Crear orden en Shopify
     let order;
+    let finalOrderNumber; // ← AGREGAR ESTA LÍNEA
     try {
       const lineItems = products
         .filter(product => !product.isCustom) // Filtrar productos personalizados para Shopify
@@ -242,6 +243,56 @@ export async function action({ request }) {
       }
       
       order = orderResult.data.draftOrderCreate.draftOrder;
+
+      // Aplicar descuento si existe
+      if (discountTotal > 0) {
+        console.log("💰 Aplicando descuento de Q" + discountTotal + " al draft order");
+        
+        const applyDiscountResponse = await admin.graphql(`
+          mutation draftOrderUpdate($id: ID!, $input: DraftOrderInput!) {
+            draftOrderUpdate(id: $id, input: $input) {
+              draftOrder {
+                id
+                name
+                totalPrice
+                appliedDiscount {
+                  value
+                  valueType
+                  title
+                }
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `, {
+          variables: {
+            id: order.id,
+            input: {
+              appliedDiscount: {
+                value: parseFloat(discountTotal),
+                valueType: "FIXED_AMOUNT",
+                title: "Descuento POS"
+              }
+            }
+          }
+        });
+
+        const discountResult = await applyDiscountResponse.json();
+        
+        if (discountResult.data.draftOrderUpdate.userErrors.length > 0) {
+          console.error("Error aplicando descuento:", discountResult.data.draftOrderUpdate.userErrors);
+        } else {
+          console.log("✅ Descuento aplicado correctamente");
+          order = discountResult.data.draftOrderUpdate.draftOrder;
+        }
+      }
+
+      finalOrderNumber = order.name;
+      console.log("📝 Número inicial (draft):", finalOrderNumber);
+    
     } catch (error) {
       console.error("Error creando orden:", error);
       throw new Error("Error al crear la orden");
@@ -292,7 +343,119 @@ export async function action({ request }) {
       throw new Error("Error al crear la factura electrónica: " + error.message);
     }
 
-    // Paso 4: Enviar por WhatsApp usando nuestra API con plantilla
+    
+    // Paso 5: Guardar en Google Sheets
+try {
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+    const sheetsApi = new GoogleSheetsAPI({
+      email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      privateKey: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
+    }, process.env.GOOGLE_SHEETS_ID);
+
+    // Calcular el total real (con descuento aplicado)
+    const totalConDescuento = products.reduce((sum, p) => sum + (parseFloat(p.price) * p.quantity), 0) - discountTotal;
+
+    await sheetsApi.appendOrder({
+      orderNumber: order.name,
+      customerName: customerData.name,
+      nit: customerData.nit,
+      phone: phoneNumber,
+      total: totalConDescuento.toFixed(2),
+      invoiceNumber: `${invoice.sat.serie}-${invoice.sat.no}`,
+      status: "Completado",
+      customerType: customerType,
+      discount: discountTotal
+    });
+  }
+} catch (error) {
+  console.error("Error guardando en Sheets:", error);
+}
+
+    // Paso 6: Completar la orden draft y marcarla como pagada/enviada
+try {
+  console.log("🚀 Intentando completar draft order con ID:", order.id);
+  
+  // Primero completar el draft
+  const completeResponse = await admin.graphql(`
+    mutation draftOrderComplete($id: ID!) {
+      draftOrderComplete(id: $id) {
+        draftOrder {
+          id
+          name
+          order {
+            id
+            name
+          }
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `, {
+    variables: { id: order.id }
+  });
+
+  const completeResult = await completeResponse.json();
+  console.log("🔍 Resultado completo:", JSON.stringify(completeResult, null, 2));
+
+  // Verificar si hay errores
+  if (completeResult.data?.draftOrderComplete?.userErrors?.length > 0) {
+    console.error("❌ Errores al completar draft:", completeResult.data.draftOrderComplete.userErrors);
+  }
+
+  if (completeResult.data?.draftOrderComplete?.draftOrder?.order) {
+    const completedOrder = completeResult.data.draftOrderComplete.draftOrder.order;
+    const completedOrderId = completedOrder.id;
+    finalOrderNumber = completedOrder.name;
+    console.log("✅ Número de orden REAL obtenido:", finalOrderNumber);
+    
+    // Marcar como pagada
+    await admin.graphql(`
+      mutation orderMarkAsPaid($input: OrderMarkAsPaidInput!) {
+        orderMarkAsPaid(input: $input) {
+          order { id }
+          userErrors { field message }
+        }
+      }
+    `, {
+      variables: { input: { id: completedOrderId } }
+    });
+
+    // Crear fulfillment para marcar como enviada
+    await admin.graphql(`
+      mutation fulfillmentCreate($fulfillment: FulfillmentV2Input!) {
+        fulfillmentCreateV2(fulfillment: $fulfillment) {
+          fulfillment { id status }
+          userErrors { field message }
+        }
+      }
+    `, {
+      variables: {
+        fulfillment: {
+          orderId: completedOrderId,
+          notifyCustomer: false,
+          trackingInfo: {
+            company: "Entrega Local",
+            number: `LOCAL-${new Date().getTime()}`
+          },
+          lineItemsByFulfillmentOrder: { fulfillmentOrderLineItems: [] }
+        }
+      }
+    });
+  } else if (completeResult.data?.draftOrderComplete?.draftOrder) {
+    // Si no hay order, pero sí draftOrder, puede que ya esté completada
+    console.log("⚠️ Draft order existe pero no tiene order asociada");
+    console.log("Draft order data:", completeResult.data.draftOrderComplete.draftOrder);
+  } else {
+    console.log("❌ No se pudo obtener la orden completada");
+  }
+} catch (error) {
+  console.error("Error completando orden:", error);
+}
+
+// Paso 4: Enviar por WhatsApp usando nuestra API con plantilla
     try {
       if (phoneNumber && invoice.uuid) {
         const whatsappApi = new WhatsAppAPI(
@@ -305,111 +468,26 @@ export async function action({ request }) {
           phoneNumber,
           invoice,
           invoice.uuid,
-          order.name, // Número de orden de Shopify
+          finalOrderNumber, // ← USAR EL NÚMERO DE ORDEN REAL
           customerData.name // Nombre del cliente
         );
         
-        console.log('WhatsApp con plantilla enviado correctamente');
+        console.log('WhatsApp enviado con número de orden:', finalOrderNumber);
+        console.log('Datos enviados a WhatsApp:', {
+          phoneNumber,
+          orderNumber: finalOrderNumber,
+          customerName: customerData.name
+        });
       }
     } catch (error) {
       console.error("Error enviando WhatsApp:", error);
       // No lanzar error aquí, la factura ya fue creada
     }
 
-    // Paso 5: Guardar en Google Sheets
-    try {
-      if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
-        const sheetsApi = new GoogleSheetsAPI({
-          email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-          privateKey: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
-        }, process.env.GOOGLE_SHEETS_ID);
-
-        await sheetsApi.appendOrder({
-          orderNumber: order.name,
-          customerName: customerData.name,
-          nit: customerData.nit,
-          phone: phoneNumber,
-          total: order.totalPrice,
-          invoiceNumber: `${invoice.sat.serie}-${invoice.sat.no}`,
-          status: "Completado",
-          customerType: customerType,
-          discount: discount
-        });
-      }
-    } catch (error) {
-      console.error("Error guardando en Sheets:", error);
-      // No lanzar error aquí
-    }
-
-    // Paso 6: Completar la orden draft y marcarla como pagada/enviada
-    try {
-      // Primero completar el draft
-      const completeResponse = await admin.graphql(`
-        mutation draftOrderComplete($id: ID!) {
-          draftOrderComplete(id: $id) {
-            draftOrder {
-              order {
-                id
-                name
-              }
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-      `, {
-        variables: { id: order.id }
-      });
-
-      const completeResult = await completeResponse.json();
-      if (completeResult.data.draftOrderComplete.order) {
-        const completedOrderId = completeResult.data.draftOrderComplete.order.id;
-        
-        // Marcar como pagada
-        await admin.graphql(`
-          mutation orderMarkAsPaid($input: OrderMarkAsPaidInput!) {
-            orderMarkAsPaid(input: $input) {
-              order { id }
-              userErrors { field message }
-            }
-          }
-        `, {
-          variables: { input: { id: completedOrderId } }
-        });
-
-        // Crear fulfillment para marcar como enviada
-        await admin.graphql(`
-          mutation fulfillmentCreate($fulfillment: FulfillmentV2Input!) {
-            fulfillmentCreateV2(fulfillment: $fulfillment) {
-              fulfillment { id status }
-              userErrors { field message }
-            }
-          }
-        `, {
-          variables: {
-            fulfillment: {
-              orderId: completedOrderId,
-              notifyCustomer: false,
-              trackingInfo: {
-                company: "Entrega Local",
-                number: `LOCAL-${new Date().getTime()}`
-              },
-              lineItemsByFulfillmentOrder: { fulfillmentOrderLineItems: [] }
-            }
-          }
-        });
-      }
-    } catch (error) {
-      console.error("Error completando/actualizando orden:", error);
-      // No lanzar error aquí ya que la factura ya fue creada
-    }
-
     return json({
       success: true,
       order: {
-        number: order.name,
+        number: finalOrderNumber, // ← CAMBIAR DE order.name a finalOrderNumber
         total: order.totalPrice
       },
       invoice: {
@@ -430,3 +508,5 @@ export async function action({ request }) {
     );
   }
 }
+
+
