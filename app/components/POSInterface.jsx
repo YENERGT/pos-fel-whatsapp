@@ -650,6 +650,8 @@ const checkPhoneDuplicate = async (phoneToCheck) => {
     setError('');
     setSearching(false);
     setProcessing(false);
+    setPhoneError('');
+    setCheckingPhone(false);
     
     // Forzar re-render del ProductSelector
     // Esto asegura que se limpie completamente
