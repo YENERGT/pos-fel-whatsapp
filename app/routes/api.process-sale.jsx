@@ -243,13 +243,6 @@ if (customProducts.length > 0) {
     creditEnabled ? `CREDITO_${creditTerms}_DIAS` : "CONTADO"
   ],
   note: `NIT: ${customerData.nit}\nWhatsApp: ${phoneNumber}\nTipo: ${customerType}\nMétodo de Pago: ${paymentGatewayName}\nDescuento: Q${discountTotal}${creditEnabled ? `\nCRÉDITO: ${creditTerms} días` : ''}${customProductsNote}`,
-  paymentTerms: creditEnabled ? {  // AGREGAR ESTE BLOQUE
-    paymentTermsType: "NET",
-    paymentSchedules: [{
-      dueAt: new Date(Date.now() + parseInt(creditTerms) * 24 * 60 * 60 * 1000).toISOString(),
-      issuedAt: new Date().toISOString()
-    }]
-  } : null,
   metafields: [
     {
       namespace: "pos",
@@ -283,18 +276,6 @@ const createOrder = await admin.graphql(`
         id
         name
         totalPrice
-        paymentTerms {
-          paymentTermsType
-          dueInDays
-          paymentSchedules {
-            edges {
-              node {
-                dueAt
-                issuedAt
-              }
-            }
-          }
-        }
         lineItems(first: 50) {
           edges {
             node {
@@ -483,10 +464,6 @@ try {
               id
               name
               displayFinancialStatus
-              paymentTerms {
-                paymentTermsType
-                dueInDays
-              }
             }
           }
           userErrors {
@@ -512,9 +489,60 @@ try {
       
       console.log("✅ Orden a crédito completada:", finalOrderNumber);
       console.log("💳 Estado financiero:", completedOrder.displayFinancialStatus);
-      console.log("📅 Términos de pago:", completedOrder.paymentTerms);
     }
-    
+    // AGREGAR PAYMENT TERMS A LA ORDEN DE CRÉDITO
+    if (creditEnabled && completedOrderId) {
+      console.log("💳 Agregando términos de pago Net", creditTerms);
+      try {
+        const updatePaymentTermsResponse = await admin.graphql(`
+          mutation orderUpdate($input: OrderInput!) {
+            orderUpdate(input: $input) {
+              order {
+                id
+                name
+                paymentTerms {
+                  paymentTermsType
+                  dueInDays
+                  paymentSchedules {
+                    edges {
+                      node {
+                        dueAt
+                        issuedAt
+                      }
+                    }
+                  }
+                }
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `, {
+          variables: {
+            input: {
+              id: completedOrderId,
+              paymentTerms: {
+                paymentTermsType: "NET",
+                paymentTermsTemplate: creditTerms === "15" ? "NET_15" : "NET_30"
+              }
+            }
+          }
+        });
+        const paymentTermsResult = await updatePaymentTermsResponse.json();
+        if (paymentTermsResult.data?.orderUpdate?.userErrors?.length > 0) {
+          console.error("❌ Error agregando payment terms:", paymentTermsResult.data.orderUpdate.userErrors);
+        } else if (paymentTermsResult.data?.orderUpdate?.order?.paymentTerms) {
+          console.log("✅ Payment terms agregados exitosamente");
+          console.log("📅 Términos:", paymentTermsResult.data.orderUpdate.order.paymentTerms);
+        }
+      } catch (paymentTermsError) {
+        console.error("❌ Error agregando payment terms:", paymentTermsError);
+        // No lanzar error, continuar sin payment terms
+      }
+    }
+
   } else {
     // Para ventas de contado, completar normalmente
     console.log("💰 Completando orden de CONTADO");
@@ -577,7 +605,7 @@ try {
     }
   }
   
-  // SIEMPRE crear fulfillment (marcar como ENVIADA) - solo si tenemos completedOrderId
+  // SIEMPRE crear fulfillment (marcando como ENVIADA) - solo si tenemos completedOrderId
   if (completedOrderId) {
     console.log("📦 Creando fulfillment (marcando como ENVIADA)");
 
