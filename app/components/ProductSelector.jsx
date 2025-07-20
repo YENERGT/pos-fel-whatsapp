@@ -8,8 +8,10 @@ export default function ProductSelector({
   onProcessSale,
   processing,
   canProcess,
-  isDarkMode = false,  // ← AGREGAR
-  theme = null  // ← AGREGAR 
+  isDarkMode = false,
+  theme = null,
+  creditEnabled = false,    // AGREGAR
+  creditTerms = ''          // AGREGAR
 }) {
 
   // Tema por defecto si no se pasa
@@ -1261,20 +1263,24 @@ export default function ProductSelector({
   }}
 >
   {processing ? (
-    <>
-      <span style={{ 
-        display: 'inline-block',
-        animation: 'spin 1s linear infinite',
-        fontSize: '20px'
-      }}>⏳</span>
-      <span>Procesando...</span>
-    </>
-  ) : (
-    <>
-      <span style={{ fontSize: '20px' }}>🛒</span>
-      <span>Procesar Venta</span>
-    </>
-  )}
+  <>
+    <span style={{ 
+      display: 'inline-block',
+      animation: 'spin 1s linear infinite',
+      fontSize: '20px'
+    }}>⏳</span>
+    <span>Procesando...</span>
+  </>
+) : (
+  <>
+    <span style={{ fontSize: '20px' }}>
+      {creditEnabled ? '💳' : '🛒'}
+    </span>
+    <span>
+      {creditEnabled ? `Procesar Venta a Crédito (${creditTerms} días)` : 'Procesar Venta'}
+    </span>
+  </>
+)}
 </button>
       </div>
    </div>

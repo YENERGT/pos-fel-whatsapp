@@ -3,7 +3,7 @@
 client_id = "91c09fd5838536b92b2a21c7c31e3c82"
 name = "POS FEL WhatsApp"
 handle = "pos-fel-whatsapp"
-application_url = "https://gods-clearance-respondent-jp.trycloudflare.com"
+application_url = "https://lane-week-book-channels.trycloudflare.com"
 embedded = true
 
 [webhooks]
@@ -11,10 +11,10 @@ api_version = "2025-07"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_products,write_products,read_customers,write_customers,read_orders,write_orders,read_inventory,write_inventory,read_draft_orders,write_draft_orders"
+scopes = "read_products,write_products,read_customers,write_customers,read_orders,write_orders,read_inventory,write_inventory,read_draft_orders,write_draft_orders,read_fulfillments,write_fulfillments,read_assigned_fulfillment_orders,write_assigned_fulfillment_orders,write_merchant_managed_fulfillment_orders,read_merchant_managed_fulfillment_orders"
 
 [auth]
-redirect_urls = ["https://gods-clearance-respondent-jp.trycloudflare.com/auth/callback", "https://gods-clearance-respondent-jp.trycloudflare.com/auth/shopify/callback", "https://gods-clearance-respondent-jp.trycloudflare.com/api/auth/callback"]
+redirect_urls = ["https://lane-week-book-channels.trycloudflare.com/auth/callback", "https://lane-week-book-channels.trycloudflare.com/auth/shopify/callback", "https://lane-week-book-channels.trycloudflare.com/api/auth/callback"]
 
 [pos]
 embedded = false

@@ -17,7 +17,9 @@ export async function action({ request }) {
     phoneNumber, 
     products,
     discountTotal = 0,  // Valor por defecto 0
-    paymentMethod = 'cash'  // Método de pago con valor por defecto
+    paymentMethod = 'cash',  // Método de pago con valor por defecto
+    creditEnabled = false,      // AGREGAR
+    creditTerms = ''            // AGREGAR
   } = formData;
 
   // Variables que necesitaremos más adelante
@@ -31,7 +33,8 @@ export async function action({ request }) {
     'bank_deposit': 'Depósito bancario',
     'ebay': 'eBay',
     'stripe': 'Stripe',
-    'visanet_pos': 'VISANET POS'
+    'visanet_pos': 'VISANET POS',
+    'credit': 'Crédito - Pendiente de pago'  // AGREGAR ESTA LÍNEA
   };
   
   let paymentGatewayName = paymentMethodNames[paymentMethod] || "POS";
@@ -232,13 +235,38 @@ if (customProducts.length > 0) {
       const orderInput = {
   customerId: customerId,
   lineItems: lineItems,
-  tags: ["POS", "FEL", customerType === 'new' ? "CLIENTE_NUEVO" : "CLIENTE_EXISTENTE", `PAGO_${paymentMethod.toUpperCase()}`],
-  note: `NIT: ${customerData.nit}\nWhatsApp: ${phoneNumber}\nTipo: ${customerType}\nMétodo de Pago: ${paymentGatewayName}\nDescuento: Q${discountTotal}${customProductsNote}`,
+  tags: [
+    "POS", 
+    "FEL", 
+    customerType === 'new' ? "CLIENTE_NUEVO" : "CLIENTE_EXISTENTE", 
+    `PAGO_${paymentMethod.toUpperCase()}`,
+    creditEnabled ? `CREDITO_${creditTerms}_DIAS` : "CONTADO"
+  ],
+  note: `NIT: ${customerData.nit}\nWhatsApp: ${phoneNumber}\nTipo: ${customerType}\nMétodo de Pago: ${paymentGatewayName}\nDescuento: Q${discountTotal}${creditEnabled ? `\nCRÉDITO: ${creditTerms} días` : ''}${customProductsNote}`,
+  paymentTerms: creditEnabled ? {  // AGREGAR ESTE BLOQUE
+    paymentTermsType: "NET",
+    paymentSchedules: [{
+      dueAt: new Date(Date.now() + parseInt(creditTerms) * 24 * 60 * 60 * 1000).toISOString(),
+      issuedAt: new Date().toISOString()
+    }]
+  } : null,
   metafields: [
     {
       namespace: "pos",
       key: "payment_method",
       value: paymentGatewayName,
+      type: "single_line_text_field"
+    },
+    {
+      namespace: "pos",
+      key: "credit_enabled",
+      value: creditEnabled ? "true" : "false",
+      type: "single_line_text_field"
+    },
+    {
+      namespace: "pos",
+      key: "credit_terms",
+      value: creditTerms || "0",
       type: "single_line_text_field"
     }
   ]
@@ -248,13 +276,25 @@ console.log("LineItems a enviar:", JSON.stringify(lineItems, null, 2));
       console.log("OrderInput completo:", JSON.stringify(orderInput, null, 2));
 
       // Crear borrador de orden
-      const createOrder = await admin.graphql(`
+const createOrder = await admin.graphql(`
   mutation draftOrderCreate($input: DraftOrderInput!) {
     draftOrderCreate(input: $input) {
       draftOrder {
         id
         name
         totalPrice
+        paymentTerms {
+          paymentTermsType
+          dueInDays
+          paymentSchedules {
+            edges {
+              node {
+                dueAt
+                issuedAt
+              }
+            }
+          }
+        }
         lineItems(first: 50) {
           edges {
             node {
@@ -422,90 +462,245 @@ console.log('🔍 Buscando totales en invoice:', {
       throw new Error("Error al crear la factura electrónica: " + error.message);
     }
 
-    // Paso 6: Completar la orden draft y marcarla como pagada/enviada
+    // Paso 6: Completar la orden draft según el tipo de pago
 try {
   console.log("🚀 Intentando completar draft order con ID:", order.id);
+  console.log("💳 Tipo de pago:", creditEnabled ? `CRÉDITO ${creditTerms} días` : "CONTADO");
   
-  // Primero completar el draft
-  const completeResponse = await admin.graphql(`
-    mutation draftOrderComplete($id: ID!) {
-      draftOrderComplete(id: $id) {
-        draftOrder {
-          id
-          name
-          order {
+  let completedOrderId;
+  
+  if (creditEnabled) {
+    // Para ventas a crédito, completar con paymentPending = true
+    console.log("💳 Completando orden a CRÉDITO (sin marcar como pagada)");
+    
+    const completeResponse = await admin.graphql(`
+      mutation draftOrderComplete($id: ID!, $paymentPending: Boolean) {
+        draftOrderComplete(id: $id, paymentPending: $paymentPending) {
+          draftOrder {
             id
             name
-            paymentGatewayNames
+            order {
+              id
+              name
+              displayFinancialStatus
+              paymentTerms {
+                paymentTermsType
+                dueInDays
+              }
+            }
+          }
+          userErrors {
+            field
+            message
           }
         }
-        userErrors {
-          field
-          message
+      }
+    `, {
+      variables: { 
+        id: order.id,
+        paymentPending: true  // ESTO ES CLAVE - evita que se marque como pagada
+      }
+    });
+
+    const completeResult = await completeResponse.json();
+    console.log("🔍 Resultado completo (crédito):", JSON.stringify(completeResult, null, 2));
+    
+    if (completeResult.data?.draftOrderComplete?.draftOrder?.order) {
+      const completedOrder = completeResult.data.draftOrderComplete.draftOrder.order;
+      completedOrderId = completedOrder.id;
+      finalOrderNumber = completedOrder.name;
+      
+      console.log("✅ Orden a crédito completada:", finalOrderNumber);
+      console.log("💳 Estado financiero:", completedOrder.displayFinancialStatus);
+      console.log("📅 Términos de pago:", completedOrder.paymentTerms);
+    }
+    
+  } else {
+    // Para ventas de contado, completar normalmente
+    console.log("💰 Completando orden de CONTADO");
+    
+    const completeResponse = await admin.graphql(`
+      mutation draftOrderComplete($id: ID!) {
+        draftOrderComplete(id: $id) {
+          draftOrder {
+            id
+            name
+            order {
+              id
+              name
+              paymentGatewayNames
+            }
+          }
+          userErrors {
+            field
+            message
+          }
         }
       }
+    `, {
+      variables: { id: order.id }
+    });
+
+    const completeResult = await completeResponse.json();
+    console.log("🔍 Resultado completo (contado):", JSON.stringify(completeResult, null, 2));
+    
+    if (completeResult.data?.draftOrderComplete?.draftOrder?.order) {
+      const completedOrder = completeResult.data.draftOrderComplete.draftOrder.order;
+      completedOrderId = completedOrder.id;
+      finalOrderNumber = completedOrder.name;
+      
+      // Solo para ventas de contado: Marcar como pagada
+      console.log("💰 Marcando orden de contado como PAGADA");
+      
+      const markPaidResponse = await admin.graphql(`
+        mutation orderMarkAsPaid($input: OrderMarkAsPaidInput!) {
+          orderMarkAsPaid(input: $input) {
+            order { 
+              id 
+              displayFinancialStatus
+            }
+            userErrors { field message }
+          }
+        }
+      `, {
+        variables: { input: { id: completedOrderId } }
+      });
+      
+      const paidResult = await markPaidResponse.json();
+      console.log("💰 Resultado de marcar como pagada:", paidResult);
+      
+      if (paidResult.data?.orderMarkAsPaid?.userErrors?.length > 0) {
+        console.error("Error marcando como pagada:", paidResult.data.orderMarkAsPaid.userErrors);
+      } else {
+        console.log("✅ Orden de contado marcada como PAGADA");
+      }
     }
-  `, {
-    variables: { id: order.id }
-  });
-
-  const completeResult = await completeResponse.json();
-  console.log("🔍 Resultado completo:", JSON.stringify(completeResult, null, 2));
-
-  // Verificar si hay errores
-  if (completeResult.data?.draftOrderComplete?.userErrors?.length > 0) {
-    console.error("❌ Errores al completar draft:", completeResult.data.draftOrderComplete.userErrors);
   }
+  
+  // SIEMPRE crear fulfillment (marcar como ENVIADA) - solo si tenemos completedOrderId
+  if (completedOrderId) {
+    console.log("📦 Creando fulfillment (marcando como ENVIADA)");
 
-  if (completeResult.data?.draftOrderComplete?.draftOrder?.order) {
-    const completedOrder = completeResult.data.draftOrderComplete.draftOrder.order;
-    const completedOrderId = completedOrder.id;
-    finalOrderNumber = completedOrder.name;
-    
-    // Obtener el payment gateway
-    if (completedOrder.paymentGatewayNames && completedOrder.paymentGatewayNames.length > 0) {
-      paymentGatewayName = completedOrder.paymentGatewayNames.join(", ");
+    try {
+      // Primero obtener los fulfillment orders
+      const fulfillmentOrdersResponse = await admin.graphql(`
+        query getFulfillmentOrders($orderId: ID!) {
+          order(id: $orderId) {
+            fulfillmentOrders(first: 10) {
+              edges {
+                node {
+                  id
+                  status
+                  lineItems(first: 50) {
+                    edges {
+                      node {
+                        id
+                        remainingQuantity
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      `, {
+        variables: { orderId: completedOrderId }
+      });
+
+      const fulfillmentOrdersResult = await fulfillmentOrdersResponse.json();
+      console.log("📦 Fulfillment Orders encontrados:", JSON.stringify(fulfillmentOrdersResult, null, 2));
+
+      const fulfillmentOrders = fulfillmentOrdersResult.data?.order?.fulfillmentOrders?.edges || [];
+      
+      if (fulfillmentOrders.length > 0) {
+        // Preparar los line items para fulfillment
+        const lineItemsToFulfill = [];
+        
+        for (const edge of fulfillmentOrders) {
+          const fulfillmentOrder = edge.node;
+          if (fulfillmentOrder.status === 'OPEN') {
+            const fulfillmentOrderLineItems = [];
+            
+            for (const lineItemEdge of fulfillmentOrder.lineItems.edges) {
+              const lineItem = lineItemEdge.node;
+              if (lineItem.remainingQuantity > 0) {
+                fulfillmentOrderLineItems.push({
+                  id: lineItem.id,
+                  quantity: lineItem.remainingQuantity
+                });
+              }
+            }
+            
+            if (fulfillmentOrderLineItems.length > 0) {
+              lineItemsToFulfill.push({
+                fulfillmentOrderId: fulfillmentOrder.id,
+                fulfillmentOrderLineItems: fulfillmentOrderLineItems
+              });
+            }
+          }
+        }
+
+        console.log("📦 Line items para fulfillment:", JSON.stringify(lineItemsToFulfill, null, 2));
+
+        if (lineItemsToFulfill.length > 0) {
+          // Crear el fulfillment
+          const createFulfillmentResponse = await admin.graphql(`
+            mutation fulfillmentCreateV2($fulfillment: FulfillmentV2Input!) {
+              fulfillmentCreateV2(fulfillment: $fulfillment) {
+                fulfillment {
+                  id
+                  status
+                  displayStatus
+                }
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }
+          `, {
+            variables: {
+              fulfillment: {
+                lineItemsByFulfillmentOrder: lineItemsToFulfill,
+                trackingInfo: {
+                  company: creditEnabled ? `Crédito ${creditTerms} días` : "Entrega Local",
+                  number: `${creditEnabled ? 'CRED' : 'LOCAL'}-${new Date().getTime()}`
+                },
+                notifyCustomer: false
+              }
+            }
+          });
+
+          const fulfillmentResult = await createFulfillmentResponse.json();
+          console.log("📦 Resultado de crear fulfillment:", JSON.stringify(fulfillmentResult, null, 2));
+
+          if (fulfillmentResult.data?.fulfillmentCreateV2?.userErrors?.length > 0) {
+            console.error("❌ Errores al crear fulfillment:", fulfillmentResult.data.fulfillmentCreateV2.userErrors);
+          } else if (fulfillmentResult.data?.fulfillmentCreateV2?.fulfillment) {
+            console.log("✅ Orden marcada como ENVIADA exitosamente");
+            console.log("📦 Estado de fulfillment:", fulfillmentResult.data.fulfillmentCreateV2.fulfillment.displayStatus);
+          }
+        } else {
+          console.log("⚠️ No hay line items disponibles para fulfillment");
+        }
+      } else {
+        console.log("⚠️ No se encontraron fulfillment orders");
+      }
+    } catch (fulfillmentError) {
+      console.error("❌ Error creando fulfillment:", fulfillmentError);
+      console.error("Detalles del error:", fulfillmentError.message);
     }
-    
-    console.log("✅ Número de orden REAL obtenido:", finalOrderNumber);
-    console.log("💳 Canal de venta:", paymentGatewayName);
-    
-    // Marcar como pagada
-    await admin.graphql(`
-      mutation orderMarkAsPaid($input: OrderMarkAsPaidInput!) {
-        orderMarkAsPaid(input: $input) {
-          order { id }
-          userErrors { field message }
-        }
-      }
-    `, {
-      variables: { input: { id: completedOrderId } }
-    });
 
-    // Crear fulfillment para marcar como enviada
-    await admin.graphql(`
-      mutation fulfillmentCreate($fulfillment: FulfillmentV2Input!) {
-        fulfillmentCreateV2(fulfillment: $fulfillment) {
-          fulfillment { id status }
-          userErrors { field message }
-        }
-      }
-    `, {
-      variables: {
-        fulfillment: {
-          orderId: completedOrderId,
-          notifyCustomer: false,
-          trackingInfo: {
-            company: "Entrega Local",
-            number: `LOCAL-${new Date().getTime()}`
-          },
-          lineItemsByFulfillmentOrder: { fulfillmentOrderLineItems: [] }
-        }
-      }
-    });
-  } else if (completeResult.data?.draftOrderComplete?.draftOrder) {
-    console.log("⚠️ Draft order existe pero no tiene order asociada");
-    console.log("Draft order data:", completeResult.data.draftOrderComplete.draftOrder);
+    // Log final del estado
+    console.log("📊 RESUMEN FINAL:");
+    console.log(`- Número de orden: ${finalOrderNumber}`);
+    console.log(`- Tipo de venta: ${creditEnabled ? 'CRÉDITO' : 'CONTADO'}`);
+    console.log(`- Estado de pago: ${creditEnabled ? 'PENDIENTE' : 'PAGADA'}`);
+    console.log(`- Estado de envío: ENVIADA`);
+    if (creditEnabled) {
+      console.log(`- Términos de crédito: ${creditTerms} días`);
+    }
   } else {
     console.log("❌ No se pudo obtener la orden completada");
   }
@@ -602,7 +797,7 @@ try {
       pdfURL: `https://app.felplex.com/pdf/${invoice.uuid}`,
       direccionJSON: direccionJSON,
       numeroTelefono: phoneNumber || "",
-      canalVenta: paymentGatewayName
+      canalVenta: creditEnabled ? `${paymentGatewayName} - CRÉDITO ${creditTerms} DÍAS` : paymentGatewayName
     });
 
     console.log('✅ Datos guardados en Google Sheets correctamente');
@@ -641,17 +836,19 @@ try {
     }
 
     return json({
-      success: true,
-      order: {
-        number: finalOrderNumber, // ← CAMBIAR DE order.name a finalOrderNumber
-        total: order.totalPrice
-      },
-      invoice: {
-        number: `${invoice.sat.serie}-${invoice.sat.no}`,
-        authorization: invoice.sat.authorization,
-        uuid: invoice.uuid
-      }
-    });
+  success: true,
+  order: {
+    number: finalOrderNumber,
+    total: order.totalPrice,
+    creditEnabled: creditEnabled,
+    creditTerms: creditTerms
+  },
+  invoice: {
+    number: `${invoice.sat.serie}-${invoice.sat.no}`,
+    authorization: invoice.sat.authorization,
+    uuid: invoice.uuid
+  }
+});
 
   } catch (error) {
     console.error("Error procesando venta:", error);

@@ -22,6 +22,8 @@ export default function POSInterface() {
   const [paymentMethod, setPaymentMethod] = useState('cash'); // Método de pago seleccionado
   const [paymentMethods, setPaymentMethods] = useState([]); // Se llenará desde la API
   const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(false);
+  const [creditEnabled, setCreditEnabled] = useState(false);
+  const [creditTerms, setCreditTerms] = useState(''); // '15' o '30' días
   
   // Estados para notificaciones
   const [notification, setNotification] = useState({
@@ -685,6 +687,8 @@ const checkPhoneDuplicate = async (phoneToCheck) => {
     setPhoneError('');
     setCheckingPhone(false);
     setPaymentMethod('cash'); // Resetear a efectivo
+    setCreditEnabled(false);
+    setCreditTerms('');
     
     // Forzar re-render del ProductSelector
     // Esto asegura que se limpie completamente
@@ -703,6 +707,12 @@ const processSale = async () => {
     showNotification('error', 'Debe seleccionar al menos un producto');
     return;
   }
+
+  // Validar términos de crédito si está habilitado
+if (creditEnabled && !creditTerms) {
+  showNotification('error', 'Debe seleccionar los términos de crédito');
+  return;
+}
 
   // Validar cliente
   if (customerType === 'existing' && !selectedCustomer) {
@@ -741,7 +751,9 @@ const processSale = async () => {
   phoneNumber: phoneNumber,
   products: selectedProducts,
   discountTotal: globalDiscount || 0,
-  paymentMethod: paymentMethod // Agregar método de pago
+  paymentMethod: paymentMethod, // Agregar método de pago
+  creditEnabled: creditEnabled,      // AGREGAR
+  creditTerms: creditTerms           // AGREGAR
 };
 
       // Agregar datos según el tipo de cliente
@@ -766,16 +778,21 @@ const processSale = async () => {
       const result = await response.json();
 
       if (result.success) {
-        // Mostrar notificación de éxito con detalles
-        const successMessage = `Orden: ${result.order.number} | Total: Q${result.order.total}`;
-        const successDetails = `Factura: ${result.invoice.number} | Autorización: ${result.invoice.authorization}`;
-        
-        showNotification('success', successMessage, successDetails);
-        
-        // Limpiar el formulario inmediatamente
-        resetForm();
-        
-      } else {
+  // Mostrar notificación de éxito con detalles
+  let successMessage = `Orden: ${result.order.number} | Total: Q${result.order.total}`;
+  let successDetails = `Factura: ${result.invoice.number} | Autorización: ${result.invoice.authorization}`;
+  
+  // Agregar información de crédito si aplica
+  if (result.order.creditEnabled) {
+    successDetails += ` | CRÉDITO: ${result.order.creditTerms} días`;
+  }
+  
+  showNotification('success', successMessage, successDetails);
+  
+  // Limpiar el formulario inmediatamente
+  resetForm();
+  
+} else {
         // Mostrar notificación de error
         showNotification('error', result.error || 'Error al procesar la venta');
         setProcessing(false);
@@ -1515,7 +1532,9 @@ const processSale = async () => {
     ? 'linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%)'
     : 'linear-gradient(135deg, #f5f0ff 0%, #ede6ff 100%)',
   borderRadius: '12px',
-  border: `2px solid ${theme.cardBorder}`
+  border: `2px solid ${theme.cardBorder}`,
+  opacity: creditEnabled ? 0.5 : 1,  // AGREGAR ESTA LÍNEA
+  pointerEvents: creditEnabled ? 'none' : 'auto'  // AGREGAR ESTA LÍNEA
 }}>
   <label style={{
     ...styles.label,
@@ -1526,11 +1545,25 @@ const processSale = async () => {
   }}>
     <span style={{ fontSize: '20px' }}>💳</span>
     <span>Método de Pago</span>
+    {creditEnabled && (  // AGREGAR ESTE BLOQUE
+      <span style={{
+        marginLeft: 'auto',
+        padding: '4px 8px',
+        background: '#ff8800',
+        color: 'white',
+        borderRadius: '6px',
+        fontSize: '12px',
+        fontWeight: 'bold'
+      }}>
+        No aplica para crédito
+      </span>
+    )}
   </label>
   
   <select
-    value={paymentMethod}
+    value={creditEnabled ? 'credit' : paymentMethod}  // MODIFICAR ESTA LÍNEA
     onChange={(e) => setPaymentMethod(e.target.value)}
+    disabled={creditEnabled}  // AGREGAR ESTA LÍNEA
     style={{
       width: '100%',
       padding: '12px 16px',
@@ -1539,28 +1572,36 @@ const processSale = async () => {
       fontSize: '16px',
       fontWeight: '500',
       backgroundColor: isDarkMode ? theme.inputBackground : 'white',
-      color: theme.text,
-      cursor: 'pointer',
+      color: creditEnabled ? theme.textSecondary : theme.text,  // MODIFICAR ESTA LÍNEA
+      cursor: creditEnabled ? 'not-allowed' : 'pointer',  // MODIFICAR ESTA LÍNEA
       outline: 'none',
       transition: 'all 0.3s ease'
     }}
     onFocus={(e) => {
-      e.target.style.borderColor = '#8e24aa';
-      e.target.style.boxShadow = '0 0 0 3px rgba(142,36,170,0.2)';
+      if (!creditEnabled) {  // AGREGAR ESTA CONDICIÓN
+        e.target.style.borderColor = '#8e24aa';
+        e.target.style.boxShadow = '0 0 0 3px rgba(142,36,170,0.2)';
+      }
     }}
     onBlur={(e) => {
       e.target.style.borderColor = theme.inputBorder;
       e.target.style.boxShadow = 'none';
     }}
   >
-    {loadingPaymentMethods ? (
-      <option value="">Cargando métodos de pago...</option>
+    {creditEnabled ? (  // AGREGAR ESTA CONDICIÓN
+      <option value="credit">Crédito - Pago pendiente</option>
     ) : (
-      paymentMethods.map(method => (
-        <option key={method.id} value={method.id}>
-          {method.name}
-        </option>
-      ))
+      <>
+        {loadingPaymentMethods ? (
+          <option value="">Cargando métodos de pago...</option>
+        ) : (
+          paymentMethods.map(method => (
+            <option key={method.id} value={method.id}>
+              {method.name}
+            </option>
+          ))
+        )}
+      </>
     )}
   </select>
   
@@ -1571,7 +1612,142 @@ const processSale = async () => {
     display: 'block',
     paddingLeft: '4px'
   }}>
-    Seleccione cómo pagará el cliente
+    {creditEnabled ? 'El pago se registrará cuando el cliente pague' : 'Seleccione cómo pagará el cliente'}
+  </small>
+</div>
+
+{/* Opción de Crédito */}
+<div style={{ 
+  marginTop: '24px',
+  padding: '20px',
+  background: isDarkMode
+    ? 'linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%)'
+    : 'linear-gradient(135deg, #fff0f5 0%, #ffe0f0 100%)',
+  borderRadius: '12px',
+  border: `2px solid ${theme.cardBorder}`
+}}>
+  <label style={{
+    ...styles.label,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '12px'
+  }}>
+    <span style={{ fontSize: '20px' }}>💳</span>
+    <span>Opción de Crédito</span>
+  </label>
+  
+  <div style={{ marginBottom: '16px' }}>
+    <label style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      cursor: 'pointer',
+      padding: '12px',
+      background: creditEnabled ? 'rgba(0, 255, 8, 0.1)' : 'transparent',
+      borderRadius: '8px',
+      transition: 'all 0.3s ease'
+    }}>
+      <input
+        type="checkbox"
+        checked={creditEnabled}
+        onChange={(e) => {
+          setCreditEnabled(e.target.checked);
+          if (!e.target.checked) {
+            setCreditTerms('');
+          }
+        }}
+        style={{
+          width: '20px',
+          height: '20px',
+          cursor: 'pointer'
+        }}
+      />
+      <span style={{ 
+        fontSize: '16px', 
+        fontWeight: creditEnabled ? 'bold' : 'normal',
+        color: theme.text 
+      }}>
+        Habilitar venta a crédito
+      </span>
+    </label>
+  </div>
+  
+  {creditEnabled && (
+    <div style={{ 
+      marginTop: '16px',
+      padding: '16px',
+      background: isDarkMode ? '#2a2a2a' : 'white',
+      borderRadius: '8px',
+      border: '1px solid #e0e0e0'
+    }}>
+      <label style={{
+        ...styles.label,
+        marginBottom: '12px'
+      }}>
+        Términos de pago:
+      </label>
+      
+      <select
+        value={creditTerms}
+        onChange={(e) => setCreditTerms(e.target.value)}
+        style={{
+          width: '100%',
+          padding: '12px 16px',
+          border: `2px solid ${theme.inputBorder}`,
+          borderRadius: '10px',
+          fontSize: '16px',
+          fontWeight: '500',
+          backgroundColor: isDarkMode ? theme.inputBackground : 'white',
+          color: theme.text,
+          cursor: 'pointer',
+          outline: 'none',
+          transition: 'all 0.3s ease'
+        }}
+        onFocus={(e) => {
+          e.target.style.borderColor = '#ff4081';
+          e.target.style.boxShadow = '0 0 0 3px rgba(255,64,129,0.2)';
+        }}
+        onBlur={(e) => {
+          e.target.style.borderColor = theme.inputBorder;
+          e.target.style.boxShadow = 'none';
+        }}
+      >
+        <option value="">Seleccione términos</option>
+        <option value="15">15 días</option>
+        <option value="30">30 días</option>
+      </select>
+      
+      {creditTerms && (
+        <div style={{
+          marginTop: '12px',
+          padding: '12px',
+          background: '#fee0f0',
+          borderRadius: '6px',
+          fontSize: '14px',
+          color: '#d32f2f',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <span style={{ fontSize: '18px' }}>⚠️</span>
+          <span>
+            La orden se marcará como enviada pero <strong>NO pagada</strong>. 
+            Plazo de pago: {creditTerms} días.
+          </span>
+        </div>
+      )}
+    </div>
+  )}
+  
+  <small style={{ 
+    color: theme.textSecondary, 
+    fontSize: '12px', 
+    marginTop: '8px', 
+    display: 'block',
+    paddingLeft: '4px'
+  }}>
+    Use esta opción solo para clientes con crédito aprobado
   </small>
 </div>
             </div>
@@ -1625,6 +1801,8 @@ const processSale = async () => {
   }
   isDarkMode={isDarkMode}
   theme={theme}
+  creditEnabled={creditEnabled}    // AGREGAR
+  creditTerms={creditTerms}        // AGREGAR
 />
             </div>
           </div>

@@ -127,16 +127,29 @@ export default function NotificationBanner({ type, message, details, onClose, du
       </div>
       
       {type === 'success' && (
-        <div style={{
-          background: style.background,
-          padding: '12px 16px',
-          borderTop: '1px solid #e0e0e0',
-          fontSize: '13px',
-          color: '#666'
-        }}>
-          📱 La factura fue enviada por WhatsApp al cliente
-        </div>
-      )}
+  <div style={{
+    background: style.background,
+    padding: '12px 16px',
+    borderTop: '1px solid #e0e0e0',
+    fontSize: '13px',
+    color: '#666'
+  }}>
+    <div style={{ marginBottom: details && details.includes('CRÉDITO') ? '8px' : '0' }}>
+      📱 La factura fue enviada por WhatsApp al cliente
+    </div>
+    {details && details.includes('CRÉDITO') && (
+      <div style={{
+        padding: '8px',
+        background: '#fff3cd',
+        borderRadius: '4px',
+        color: '#856404',
+        fontWeight: 'bold'
+      }}>
+        ⚠️ Venta a crédito - La orden NO fue marcada como pagada
+      </div>
+    )}
+  </div>
+)}
     </div>
   );
 }
