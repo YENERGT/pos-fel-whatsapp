@@ -34,30 +34,34 @@ class FelAPI {
   }
 
   async createInvoiceWithWhatsApp(invoiceData) {
-    try {
-      const url = `${this.baseURL}/api/entity/${this.empresaId}/invoices/await`;
-      console.log('Creando factura en FEL:', url);
-      console.log('Datos enviados:', JSON.stringify(invoiceData, null, 2));
-      
-      const response = await axios.post(url, invoiceData, {
-        headers: {
-          'Accept': 'application/json',
-          'X-Authorization': this.apiKey,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log('Respuesta de factura FEL:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error en FelAPI.createInvoiceWithWhatsApp:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
-      });
-      throw error;
-    }
+  try {
+    const url = `${this.baseURL}/api/entity/${this.empresaId}/invoices/await`;
+    console.log('Creando factura en FEL:', url);
+    console.log('Datos enviados:', JSON.stringify(invoiceData, null, 2));
+    
+    const response = await axios.post(url, invoiceData, {
+      headers: {
+        'Accept': 'application/json',
+        'X-Authorization': this.apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('Respuesta de factura FEL:', response.data);
+    
+    // AGREGAR ESTE LOG DETALLADO
+    console.log('🔍 ESTRUCTURA COMPLETA DE LA RESPUESTA FEL:', JSON.stringify(response.data, null, 2));
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error en FelAPI.createInvoiceWithWhatsApp:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    throw error;
   }
+}
 
   formatInvoiceData(orderData, nitData, phoneNumber, discountTotal = 0) {
   // Calcular totales correctamente

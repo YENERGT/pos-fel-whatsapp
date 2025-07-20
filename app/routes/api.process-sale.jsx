@@ -19,6 +19,10 @@ export async function action({ request }) {
     discountTotal = 0  // Valor por defecto 0
   } = formData;
 
+  // Variables que necesitaremos más adelante
+  let finalOrderNumber = "";
+  let paymentGatewayName = "POS"; // Valor por defecto
+
   console.log("Datos recibidos:", {
     customerType,
     discountTotal,
@@ -181,7 +185,6 @@ export async function action({ request }) {
 
     // Paso 2: Crear orden en Shopify
     let order;
-    let finalOrderNumber; // ← AGREGAR ESTA LÍNEA
     try {
       const lineItems = products
         .filter(product => !product.isCustom) // Filtrar productos personalizados para Shopify
@@ -300,6 +303,9 @@ export async function action({ request }) {
 
     // Paso 3: Crear factura en FEL (usando producción)
     let invoice;
+    let invoiceData; // AGREGAR ESTA LÍNEA
+    let calculatedTotal = 0; // AGREGAR ESTA LÍNEA
+    let calculatedIVA = 0; // AGREGAR ESTA LÍNEA
     try {
       const felApi = new FelAPI(
         "r578Ts7DCACpPkgyzToY9BTZGvEIJ7qCNomNQySE1adDihwBMEyJ6UOHKtNQxTfC",
@@ -331,9 +337,34 @@ export async function action({ request }) {
       console.log("Enviando a FEL con descuento:", discount);
       
       // Pasar el descuento global al formatear los datos
-      const invoiceData = felApi.formatInvoiceData(orderData, nit, null, discount);
+invoiceData = felApi.formatInvoiceData(orderData, nit, null, discount);
+
+      // Guardar los valores calculados
+const subtotal = products.reduce((sum, p) => sum + (parseFloat(p.price) * p.quantity), 0);
+const totalConDescuento = subtotal - (parseFloat(discountTotal) || 0);
+calculatedTotal = totalConDescuento.toFixed(2);
+// IVA es el 12% en Guatemala
+const totalSinIVA = totalConDescuento / 1.12;
+calculatedIVA = (totalConDescuento - totalSinIVA).toFixed(2);
+
+console.log('💰 Valores calculados para la factura:', {
+  subtotal: subtotal,
+  descuento: discountTotal,
+  totalConDescuento: calculatedTotal,
+  iva: calculatedIVA
+});
       
       invoice = await felApi.createInvoiceWithWhatsApp(invoiceData);
+
+      console.log('📋 Factura creada - Estructura completa:', JSON.stringify(invoice, null, 2));
+console.log('🔍 Buscando totales en invoice:', {
+  direct_total: invoice.total,
+  direct_total_tax: invoice.total_tax,
+  direct_tax: invoice.tax,
+  totals_object: invoice.totals,
+  sat_object: invoice.sat,
+  invoice_keys: Object.keys(invoice)
+});
 
       if (!invoice.valid) {
         throw new Error(invoice.errors?.join(", ") || "Error en FEL");
@@ -343,33 +374,11 @@ export async function action({ request }) {
       throw new Error("Error al crear la factura electrónica: " + error.message);
     }
 
+    // Asegurarnos de que paymentGatewayName tenga un valor
+    if (!paymentGatewayName) {
+      paymentGatewayName = "POS";
+    }
     
-    // Paso 5: Guardar en Google Sheets
-try {
-  if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
-    const sheetsApi = new GoogleSheetsAPI({
-      email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      privateKey: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
-    }, process.env.GOOGLE_SHEETS_ID);
-
-    // Calcular el total real (con descuento aplicado)
-    const totalConDescuento = products.reduce((sum, p) => sum + (parseFloat(p.price) * p.quantity), 0) - discountTotal;
-
-    await sheetsApi.appendOrder({
-      orderNumber: order.name,
-      customerName: customerData.name,
-      nit: customerData.nit,
-      phone: phoneNumber,
-      total: totalConDescuento.toFixed(2),
-      invoiceNumber: `${invoice.sat.serie}-${invoice.sat.no}`,
-      status: "Completado",
-      customerType: customerType,
-      discount: discountTotal
-    });
-  }
-} catch (error) {
-  console.error("Error guardando en Sheets:", error);
-}
 
     // Paso 6: Completar la orden draft y marcarla como pagada/enviada
 try {
@@ -385,6 +394,7 @@ try {
           order {
             id
             name
+            paymentGatewayNames
           }
         }
         userErrors {
@@ -409,7 +419,14 @@ try {
     const completedOrder = completeResult.data.draftOrderComplete.draftOrder.order;
     const completedOrderId = completedOrder.id;
     finalOrderNumber = completedOrder.name;
+    
+    // Obtener el payment gateway
+    if (completedOrder.paymentGatewayNames && completedOrder.paymentGatewayNames.length > 0) {
+      paymentGatewayName = completedOrder.paymentGatewayNames.join(", ");
+    }
+    
     console.log("✅ Número de orden REAL obtenido:", finalOrderNumber);
+    console.log("💳 Canal de venta:", paymentGatewayName);
     
     // Marcar como pagada
     await admin.graphql(`
@@ -445,7 +462,6 @@ try {
       }
     });
   } else if (completeResult.data?.draftOrderComplete?.draftOrder) {
-    // Si no hay order, pero sí draftOrder, puede que ya esté completada
     console.log("⚠️ Draft order existe pero no tiene order asociada");
     console.log("Draft order data:", completeResult.data.draftOrderComplete.draftOrder);
   } else {
@@ -453,6 +469,104 @@ try {
   }
 } catch (error) {
   console.error("Error completando orden:", error);
+}
+
+ // Paso 5: Guardar en Google Sheets (AHORA DESPUÉS DE COMPLETAR ORDEN)
+try {
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY && finalOrderNumber && invoice) {
+    console.log('🔍 Preparando datos para Google Sheets:', {
+      orderNumber: finalOrderNumber,
+      totalCalculado: calculatedTotal,
+      ivaCalculado: calculatedIVA,
+      uuid: invoice.uuid
+    });
+
+    const sheetsApi = new GoogleSheetsAPI({
+      email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      privateKey: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
+    }, process.env.GOOGLE_SHEETS_ID);
+
+    // Construir el JSON de productos según el formato FEL
+    const productosJSON = JSON.stringify({
+      to: {
+        address: {
+          zip: nit?.address?.zip || null,
+          city: nit?.address?.city || null,
+          state: nit?.address?.state || null,
+          street: nit?.address?.street || null,
+          country: nit?.address?.country || null
+        },
+        tax_code: nit?.tax_code || "CF",
+        tax_name: nit?.tax_name || "CONSUMIDOR FINAL",
+        tax_code_type: "NIT"
+      },
+      type: "FACT",
+      items: products.map((item) => ({
+        qty: item.quantity,
+        type: "B",
+        price: parseFloat(item.price),
+        taxes: {
+          quantity: null,
+          tax_code: null,
+          full_name: null,
+          short_name: null,
+          tax_amount: null,
+          taxable_amount: null
+        },
+        discount: 0,
+        description: item.title || item.name || "Producto",
+        without_iva: 0,
+        is_discount_percentage: 0
+      })),
+      to_cf: nit ? 0 : 1,
+      total: parseFloat(calculatedTotal), // USAR VALOR CALCULADO
+      emails: [{email: null}],
+      emails_cc: [{email: "info@gruporevisa.net"}],
+      total_tax: calculatedIVA, // USAR VALOR CALCULADO
+      exempt_phrase: null,
+      datetime_issue: new Date().toISOString().slice(0, 19)
+    });
+
+    // Construir JSON de dirección
+    const direccionJSON = JSON.stringify({
+      first_name: customerData.name?.split(' ')[0] || "",
+      address1: nit?.address?.street || "",
+      phone: phoneNumber || "",
+      city: nit?.address?.city || "",
+      zip: nit?.address?.zip || "",
+      province: nit?.address?.state || "",
+      country: "Guatemala",
+      last_name: customerData.name?.split(' ').slice(1).join(' ') || "",
+      address2: "",
+      company: nit?.tax_code || "",
+      latitude: null,
+      longitude: null,
+      name: customerData.name || "",
+      country_code: "GT",
+      province_code: ""
+    });
+
+    await sheetsApi.appendOrder({
+      orderNumber: finalOrderNumber,
+      productosJSON: productosJSON,
+      totalGeneral: calculatedTotal,     // USAR VALOR CALCULADO
+      totalIVA: calculatedIVA,           // USAR VALOR CALCULADO
+      nit: customerData.nit || "CF",
+      nombreNIT: customerData.name || "CONSUMIDOR FINAL",
+      uuid: invoice.uuid || "",
+      serie: invoice.sat?.serie || "",
+      noAutorizacion: invoice.sat?.authorization || "",
+      estado: "paid",
+      pdfURL: `https://app.felplex.com/pdf/${invoice.uuid}`,
+      direccionJSON: direccionJSON,
+      numeroTelefono: phoneNumber || "",
+      canalVenta: paymentGatewayName
+    });
+
+    console.log('✅ Datos guardados en Google Sheets correctamente');
+  }
+} catch (error) {
+  console.error("Error guardando en Sheets:", error);
 }
 
 // Paso 4: Enviar por WhatsApp usando nuestra API con plantilla
