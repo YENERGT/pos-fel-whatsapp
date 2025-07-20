@@ -19,6 +19,9 @@ export default function POSInterface() {
   const [processing, setProcessing] = useState(false);
   const [phoneError, setPhoneError] = useState('');
   const [checkingPhone, setCheckingPhone] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('cash'); // Método de pago seleccionado
+  const [paymentMethods, setPaymentMethods] = useState([]); // Se llenará desde la API
+  const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(false);
   
   // Estados para notificaciones
   const [notification, setNotification] = useState({
@@ -40,6 +43,35 @@ useEffect(() => {
     }
   }
 }, []);
+
+// Cargar métodos de pago al iniciar
+useEffect(() => {
+  loadPaymentMethods();
+}, []);
+
+const loadPaymentMethods = async () => {
+  setLoadingPaymentMethods(true);
+  try {
+    console.log('Cargando métodos de pago...'); // AGREGAR
+    const response = await fetch('/api/payment-methods');
+    console.log('Respuesta recibida:', response); // AGREGAR
+    const data = await response.json();
+    console.log('Datos recibidos:', data); // AGREGAR
+    
+    if (data.success) {
+      setPaymentMethods(data.paymentMethods);
+      console.log('Métodos establecidos:', data.paymentMethods); // AGREGAR
+      // Establecer efectivo como método por defecto
+      setPaymentMethod('cash');
+    } else {
+      console.error('Error cargando métodos de pago:', data.error);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+  } finally {
+    setLoadingPaymentMethods(false);
+  }
+};
 
 // Función para cambiar tema
 const toggleTheme = () => {
@@ -652,6 +684,7 @@ const checkPhoneDuplicate = async (phoneToCheck) => {
     setProcessing(false);
     setPhoneError('');
     setCheckingPhone(false);
+    setPaymentMethod('cash'); // Resetear a efectivo
     
     // Forzar re-render del ProductSelector
     // Esto asegura que se limpie completamente
@@ -704,11 +737,12 @@ const processSale = async () => {
 
     try {
       const requestData = {
-        customerType: customerType,
-        phoneNumber: phoneNumber,
-        products: selectedProducts,
-        discountTotal: globalDiscount || 0
-      };
+  customerType: customerType,
+  phoneNumber: phoneNumber,
+  products: selectedProducts,
+  discountTotal: globalDiscount || 0,
+  paymentMethod: paymentMethod // Agregar método de pago
+};
 
       // Agregar datos según el tipo de cliente
       if (customerType === 'existing') {
@@ -1470,6 +1504,74 @@ const processSale = async () => {
     {customerType === 'existing' && selectedCustomer && selectedCustomer.phone
       ? '✓ Usando el teléfono del cliente registrado'
       : 'Incluya el código de país (+502 para Guatemala)'}
+  </small>
+</div>
+
+{/* Selector de Método de Pago */}
+<div style={{ 
+  marginTop: '24px',
+  padding: '20px',
+  background: isDarkMode
+    ? 'linear-gradient(135deg, #3a3a3a 0%, #2a2a2a 100%)'
+    : 'linear-gradient(135deg, #f5f0ff 0%, #ede6ff 100%)',
+  borderRadius: '12px',
+  border: `2px solid ${theme.cardBorder}`
+}}>
+  <label style={{
+    ...styles.label,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '12px'
+  }}>
+    <span style={{ fontSize: '20px' }}>💳</span>
+    <span>Método de Pago</span>
+  </label>
+  
+  <select
+    value={paymentMethod}
+    onChange={(e) => setPaymentMethod(e.target.value)}
+    style={{
+      width: '100%',
+      padding: '12px 16px',
+      border: `2px solid ${theme.inputBorder}`,
+      borderRadius: '10px',
+      fontSize: '16px',
+      fontWeight: '500',
+      backgroundColor: isDarkMode ? theme.inputBackground : 'white',
+      color: theme.text,
+      cursor: 'pointer',
+      outline: 'none',
+      transition: 'all 0.3s ease'
+    }}
+    onFocus={(e) => {
+      e.target.style.borderColor = '#8e24aa';
+      e.target.style.boxShadow = '0 0 0 3px rgba(142,36,170,0.2)';
+    }}
+    onBlur={(e) => {
+      e.target.style.borderColor = theme.inputBorder;
+      e.target.style.boxShadow = 'none';
+    }}
+  >
+    {loadingPaymentMethods ? (
+      <option value="">Cargando métodos de pago...</option>
+    ) : (
+      paymentMethods.map(method => (
+        <option key={method.id} value={method.id}>
+          {method.name}
+        </option>
+      ))
+    )}
+  </select>
+  
+  <small style={{ 
+    color: theme.textSecondary, 
+    fontSize: '12px', 
+    marginTop: '8px', 
+    display: 'block',
+    paddingLeft: '4px'
+  }}>
+    Seleccione cómo pagará el cliente
   </small>
 </div>
             </div>

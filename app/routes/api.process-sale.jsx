@@ -16,17 +16,32 @@ export async function action({ request }) {
     nit, 
     phoneNumber, 
     products,
-    discountTotal = 0  // Valor por defecto 0
+    discountTotal = 0,  // Valor por defecto 0
+    paymentMethod = 'cash'  // Método de pago con valor por defecto
   } = formData;
 
   // Variables que necesitaremos más adelante
   let finalOrderNumber = "";
-  let paymentGatewayName = "POS"; // Valor por defecto
+
+  // Mapear método de pago a nombre de gateway
+  const paymentMethodNames = {
+    'cash': 'Efectivo',
+    'gift_card': 'Tarjeta de regalo',
+    'store_credit': 'Crédito en tienda',
+    'bank_deposit': 'Depósito bancario',
+    'ebay': 'eBay',
+    'stripe': 'Stripe',
+    'visanet_pos': 'VISANET POS'
+  };
+  
+  let paymentGatewayName = paymentMethodNames[paymentMethod] || "POS";
 
   console.log("Datos recibidos:", {
     customerType,
     discountTotal,
-    productCount: products?.length
+    productCount: products?.length,
+    paymentMethod,
+    paymentGatewayName  // Agregar para verificar
   });
 
   try {
@@ -186,59 +201,88 @@ export async function action({ request }) {
     // Paso 2: Crear orden en Shopify
     let order;
     try {
-      const lineItems = products
-        .filter(product => !product.isCustom) // Filtrar productos personalizados para Shopify
-        .map(product => ({
-          variantId: product.variantId,
-          quantity: product.quantity
-        }));
+      // Combinar todos los productos en lineItems
+const lineItems = products.map(product => {
+  if (product.isCustom) {
+    // Productos personalizados usan title y originalUnitPrice
+    return {
+      title: product.title,
+      originalUnitPrice: product.price,
+      quantity: product.quantity,
+      requiresShipping: false,
+      taxable: true
+    };
+  } else {
+    // Productos regulares usan variantId
+    return {
+      variantId: product.variantId,
+      quantity: product.quantity
+    };
+  }
+});
 
       // Agregar nota sobre productos personalizados si existen
-      const customProducts = products.filter(p => p.isCustom);
-      let customProductsNote = '';
-      if (customProducts.length > 0) {
-        customProductsNote = '\n\nPRODUCTOS PERSONALIZADOS:\n' +
-          customProducts.map(p => `- ${p.title}: Q${p.price} x ${p.quantity}`).join('\n');
-      }
+let customProductsNote = '';
+const customProducts = products.filter(p => p.isCustom);
+if (customProducts.length > 0) {
+  customProductsNote = '\n\nPRODUCTOS PERSONALIZADOS:\n' +
+    customProducts.map(p => `- ${p.title}: Q${p.price} x ${p.quantity}`).join('\n');
+}
 
       const orderInput = {
-        customerId: customerId,
-        lineItems: lineItems,
-        tags: ["POS", "FEL", customerType === 'new' ? "CLIENTE_NUEVO" : "CLIENTE_EXISTENTE"],
-        note: `NIT: ${customerData.nit}\nWhatsApp: ${phoneNumber}\nTipo: ${customerType}\nDescuento: Q${discountTotal}${customProductsNote}`
-      };
+  customerId: customerId,
+  lineItems: lineItems,
+  tags: ["POS", "FEL", customerType === 'new' ? "CLIENTE_NUEVO" : "CLIENTE_EXISTENTE", `PAGO_${paymentMethod.toUpperCase()}`],
+  note: `NIT: ${customerData.nit}\nWhatsApp: ${phoneNumber}\nTipo: ${customerType}\nMétodo de Pago: ${paymentGatewayName}\nDescuento: Q${discountTotal}${customProductsNote}`,
+  metafields: [
+    {
+      namespace: "pos",
+      key: "payment_method",
+      value: paymentGatewayName,
+      type: "single_line_text_field"
+    }
+  ]
+};
+
+console.log("LineItems a enviar:", JSON.stringify(lineItems, null, 2));
+      console.log("OrderInput completo:", JSON.stringify(orderInput, null, 2));
 
       // Crear borrador de orden
       const createOrder = await admin.graphql(`
-        mutation draftOrderCreate($input: DraftOrderInput!) {
-          draftOrderCreate(input: $input) {
-            draftOrder {
-              id
-              name
-              totalPrice
-              lineItems(first: 50) {
-                edges {
-                  node {
-                    title
-                    quantity
-                    originalUnitPrice
-                    discountedUnitPrice
-                    discountedTotal
-                  }
-                }
+  mutation draftOrderCreate($input: DraftOrderInput!) {
+    draftOrderCreate(input: $input) {
+      draftOrder {
+        id
+        name
+        totalPrice
+        lineItems(first: 50) {
+          edges {
+            node {
+              title
+              quantity
+              originalUnitPrice
+              discountedUnitPrice
+              discountedTotal
+              customAttributes {
+                key
+                value
               }
-            }
-            userErrors {
-              field
-              message
+              custom
             }
           }
         }
-      `, {
-        variables: {
-          input: orderInput
-        }
-      });
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`, {
+  variables: {
+    input: orderInput
+  }
+});
 
       const orderResult = await createOrder.json();
       if (orderResult.data.draftOrderCreate.userErrors.length > 0) {
@@ -297,9 +341,13 @@ export async function action({ request }) {
       console.log("📝 Número inicial (draft):", finalOrderNumber);
     
     } catch (error) {
-      console.error("Error creando orden:", error);
-      throw new Error("Error al crear la orden");
-    }
+  console.error("Error creando orden:", error);
+  console.error("Detalles del error:", {
+    message: error.message,
+    stack: error.stack
+  });
+  throw new Error(`Error al crear la orden: ${error.message}`);
+}
 
     // Paso 3: Crear factura en FEL (usando producción)
     let invoice;
@@ -373,12 +421,6 @@ console.log('🔍 Buscando totales en invoice:', {
       console.error("Error creando factura:", error);
       throw new Error("Error al crear la factura electrónica: " + error.message);
     }
-
-    // Asegurarnos de que paymentGatewayName tenga un valor
-    if (!paymentGatewayName) {
-      paymentGatewayName = "POS";
-    }
-    
 
     // Paso 6: Completar la orden draft y marcarla como pagada/enviada
 try {
