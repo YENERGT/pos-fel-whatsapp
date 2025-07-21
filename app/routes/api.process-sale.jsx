@@ -232,7 +232,7 @@ if (customProducts.length > 0) {
     customProducts.map(p => `- ${p.title}: Q${p.price} x ${p.quantity}`).join('\n');
 }
 
-      const orderInput = {
+const orderInput = {
   customerId: customerId,
   lineItems: lineItems,
   tags: [
@@ -493,21 +493,30 @@ try {
     // AGREGAR PAYMENT TERMS A LA ORDEN DE CRÉDITO
     if (creditEnabled && completedOrderId) {
       console.log("💳 Agregando términos de pago Net", creditTerms);
+      console.log("📝 Order ID para payment terms:", completedOrderId);
+      
       try {
-        const updatePaymentTermsResponse = await admin.graphql(`
-          mutation orderUpdate($input: OrderInput!) {
-            orderUpdate(input: $input) {
-              order {
+        // Usar los IDs de template correctos
+        const paymentTemplateId = creditTerms === "15"
+          ? "gid://shopify/PaymentTermsTemplate/3"  // NET 15
+          : "gid://shopify/PaymentTermsTemplate/4"; // NET 30
+        
+        const addPaymentTermsResponse = await admin.graphql(`
+          mutation paymentTermsCreate($input: PaymentTermsCreateInput!) {
+            paymentTermsCreate(input: $input) {
+              paymentTerms {
                 id
-                name
-                paymentTerms {
-                  paymentTermsType
-                  dueInDays
-                  paymentSchedules {
-                    edges {
-                      node {
-                        dueAt
-                        issuedAt
+                paymentTermsName
+                dueInDays
+                paymentTermsType
+                paymentSchedules {
+                  edges {
+                    node {
+                      issuedAt
+                      dueAt
+                      amount {
+                        amount
+                        currencyCode
                       }
                     }
                   }
@@ -522,23 +531,25 @@ try {
         `, {
           variables: {
             input: {
-              id: completedOrderId,
-              paymentTerms: {
-                paymentTermsType: "NET",
-                paymentTermsTemplate: creditTerms === "15" ? "NET_15" : "NET_30"
-              }
+              paymentTermsTemplateId: paymentTemplateId,
+              referenceId: completedOrderId
             }
           }
         });
-        const paymentTermsResult = await updatePaymentTermsResponse.json();
-        if (paymentTermsResult.data?.orderUpdate?.userErrors?.length > 0) {
-          console.error("❌ Error agregando payment terms:", paymentTermsResult.data.orderUpdate.userErrors);
-        } else if (paymentTermsResult.data?.orderUpdate?.order?.paymentTerms) {
+        
+        const paymentTermsResult = await addPaymentTermsResponse.json();
+        console.log("💳 Resultado completo de payment terms:", JSON.stringify(paymentTermsResult, null, 2));
+        
+        if (paymentTermsResult.errors) {
+          console.error("❌ Errores GraphQL al agregar payment terms:", paymentTermsResult.errors);
+        } else if (paymentTermsResult.data?.paymentTermsCreate?.userErrors?.length > 0) {
+          console.error("❌ User errors al agregar payment terms:", paymentTermsResult.data.paymentTermsCreate.userErrors);
+        } else if (paymentTermsResult.data?.paymentTermsCreate?.paymentTerms) {
           console.log("✅ Payment terms agregados exitosamente");
-          console.log("📅 Términos:", paymentTermsResult.data.orderUpdate.order.paymentTerms);
+          console.log("📅 Detalles:", paymentTermsResult.data.paymentTermsCreate.paymentTerms);
         }
       } catch (paymentTermsError) {
-        console.error("❌ Error agregando payment terms:", paymentTermsError);
+        console.error("❌ Error agregando payment terms:", paymentTermsError.message);
         // No lanzar error, continuar sin payment terms
       }
     }
