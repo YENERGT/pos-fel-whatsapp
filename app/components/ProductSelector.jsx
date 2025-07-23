@@ -40,6 +40,7 @@ export default function ProductSelector({
   const [showCustomProduct, setShowCustomProduct] = useState(false);
   const [customProductName, setCustomProductName] = useState('');
   const [customProductPrice, setCustomProductPrice] = useState('');
+  const [loadingMessage, setLoadingMessage] = useState('');
 
   // Sincronizar con productos iniciales cuando cambien desde afuera
   useEffect(() => {
@@ -54,8 +55,8 @@ export default function ProductSelector({
   }, [initialProducts]);
 
   useEffect(() => {
-    loadProducts();
-  }, []);
+  loadProducts();
+}, []);
 
   useEffect(() => {
     if (onDiscountChange) {
@@ -76,63 +77,107 @@ export default function ProductSelector({
   }, []);
 
   const loadProducts = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/products');
-      const data = await response.json();
-      setProducts(data.products || []);
-    } catch (error) {
-      console.error('Error cargando productos:', error);
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  setLoadingMessage('Cargando catálogo de productos...');
+  try {
+    const response = await fetch('/api/products');
+    const data = await response.json();
+    setProducts(data.products || []);
+    setLoadingMessage('');
+    
+    // Mostrar mensaje de éxito temporalmente
+    if (data.totalProducts) {
+      setLoadingMessage(`✅ ${data.totalProducts} productos cargados`);
+      setTimeout(() => setLoadingMessage(''), 3000);
     }
-  };
+  } catch (error) {
+    console.error('Error cargando productos:', error);
+    setLoadingMessage('❌ Error cargando productos');
+  } finally {
+    setLoading(false);
+  }
+};
 
-  // Búsqueda predictiva
-  useEffect(() => {
-    if (searchTerm.length > 0) {
-      const filtered = products.filter(p => 
-        p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        p.baseTitle.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+  // Búsqueda predictiva mejorada
+useEffect(() => {
+  if (searchTerm.length > 0) {
+    // Normalizar texto para búsqueda (quitar acentos, minúsculas)
+    const normalizeText = (text) => {
+      return text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+    };
+    
+    const searchNormalized = normalizeText(searchTerm);
+    const searchWords = searchNormalized.split(' ').filter(word => word.length > 0);
+    
+    // Filtrar productos con búsqueda inteligente
+    const filtered = products.filter(p => {
+      // Normalizar todos los campos del producto
+      const productTitle = normalizeText(p.title || '');
+      const productDescription = normalizeText(p.description || '');
+      const productSku = normalizeText(p.sku || '');
+      const productBaseTitle = normalizeText(p.baseTitle || '');
+      const searchableText = p.searchTerms || `${productTitle} ${productDescription} ${productSku}`;
+      
+      // Verificar si TODAS las palabras de búsqueda están en el producto
+      return searchWords.every(word => searchableText.includes(word));
+    });
 
-      // Agrupar por producto base con min/max price y total stock
-      const grouped = filtered.reduce((acc, product) => {
-        const baseTitle = product.baseTitle;
-        if (!acc[baseTitle]) {
-          acc[baseTitle] = {
-            baseTitle,
-            variants: [],
-            firstImage: product.image,
-            hasMultipleVariants: false,
-            minPrice: Infinity,
-            maxPrice: 0,
-            totalStock: 0
-          };
-        }
-        acc[baseTitle].variants.push(product);
-        // Actualizar precio mínimo y máximo
-        const price = parseFloat(product.price);
-        if (price < acc[baseTitle].minPrice) acc[baseTitle].minPrice = price;
-        if (price > acc[baseTitle].maxPrice) acc[baseTitle].maxPrice = price;
-        // Sumar stock
-        acc[baseTitle].totalStock += product.inventory;
-        return acc;
-      }, {});
+    // Ordenar resultados por relevancia
+    const sortedFiltered = filtered.sort((a, b) => {
+      const aTitle = normalizeText(a.title);
+      const bTitle = normalizeText(b.title);
+      
+      // Priorizar coincidencias exactas en el título
+      if (aTitle.startsWith(searchNormalized) && !bTitle.startsWith(searchNormalized)) return -1;
+      if (!aTitle.startsWith(searchNormalized) && bTitle.startsWith(searchNormalized)) return 1;
+      
+      // Luego por coincidencias en el título
+      if (aTitle.includes(searchNormalized) && !bTitle.includes(searchNormalized)) return -1;
+      if (!aTitle.includes(searchNormalized) && bTitle.includes(searchNormalized)) return 1;
+      
+      return 0;
+    });
 
-      // Marcar productos con múltiples variantes
-      Object.values(grouped).forEach(group => {
-        group.hasMultipleVariants = group.variants.length > 1;
-      });
+    // Agrupar por producto base con min/max price y total stock
+    const grouped = sortedFiltered.reduce((acc, product) => {
+      const baseTitle = product.baseTitle;
+      if (!acc[baseTitle]) {
+        acc[baseTitle] = {
+          baseTitle,
+          variants: [],
+          firstImage: product.image,
+          hasMultipleVariants: false,
+          minPrice: Infinity,
+          maxPrice: 0,
+          totalStock: 0
+        };
+      }
+      acc[baseTitle].variants.push(product);
+      // Actualizar precio mínimo y máximo
+      const price = parseFloat(product.price);
+      if (price < acc[baseTitle].minPrice) acc[baseTitle].minPrice = price;
+      if (price > acc[baseTitle].maxPrice) acc[baseTitle].maxPrice = price;
+      // Sumar stock
+      acc[baseTitle].totalStock += product.inventory;
+      return acc;
+    }, {});
 
-      setSearchResults(Object.values(grouped));
-      setShowResults(true);
-    } else {
-      setSearchResults([]);
-      setShowResults(false);
-    }
-  }, [searchTerm, products]);
+    // Marcar productos con múltiples variantes
+    Object.values(grouped).forEach(group => {
+      group.hasMultipleVariants = group.variants.length > 1;
+    });
+
+    setSearchResults(Object.values(grouped));
+    setShowResults(true);
+  } else {
+    setSearchResults([]);
+    setShowResults(false);
+  }
+}, [searchTerm, products]);
 
   const handleProductClick = (productGroup) => {
     if (productGroup.hasMultipleVariants) {
@@ -247,6 +292,37 @@ export default function ProductSelector({
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+     
+     {/* Indicador de carga */}
+{loadingMessage && (
+  <div style={{
+    background: loading ? '#fff3cd' : '#d4edda',
+    color: loading ? '#856404' : '#155724',
+    padding: '12px 16px',
+    borderRadius: '8px',
+    marginBottom: '16px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '14px',
+    fontWeight: '500',
+    animation: 'fadeIn 0.3s ease'
+  }}>
+    {loading && (
+      <span style={{
+        display: 'inline-block',
+        width: '16px',
+        height: '16px',
+        border: '2px solid #856404',
+        borderTopColor: 'transparent',
+        borderRadius: '50%',
+        animation: 'spin 1s linear infinite'
+      }}></span>
+    )}
+    <span>{loadingMessage}</span>
+  </div>
+)}
+     
       {/* Buscador predictivo mejorado */}
 <div ref={searchRef} style={{ 
   position: 'relative', 
