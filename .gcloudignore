@@ -1,0 +1,13 @@
+.git
+.gitignore
+node_modules/
+.env
+.env.*
+!.env.production
+.cache/
+build/
+public/build/
+prisma/dev.sqlite
+prisma/dev.sqlite-journal
+*.log
+.DS_Store
