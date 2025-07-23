@@ -1267,23 +1267,28 @@ useEffect(() => {
         </div>
 
         {/* Totales - Siempre visible al final */}
-        <div style={{ 
-          padding: '20px',
-          background: 'white',
-          borderRadius: '8px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-          marginTop: 'auto'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '16px' }}>
-            <span>Subtotal:</span>
-            <span>Q{calculateSubtotal().toFixed(2)}</span>
-          </div>
-          {globalDiscount > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', color: '#ff6600', fontSize: '16px' }}>
-              <span>Descuento:</span>
-              <span>-Q{calculateDiscountAmount().toFixed(2)}</span>
-            </div>
-          )}
+<div style={{ 
+  padding: '20px',
+  background: 'white',
+  borderRadius: '8px',
+  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+  marginTop: 'auto'
+}}>
+  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '16px' }}>
+    <span>Subtotal:</span>
+    <span>Q{calculateSubtotal().toFixed(2)}</span>
+  </div>
+  {globalDiscount > 0 && (
+    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', color: '#ff6600', fontSize: '16px' }}>
+      <span>Descuento:</span>
+      <span>-Q{calculateDiscountAmount().toFixed(2)}</span>
+    </div>
+  )}
+  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '16px', color: '#666' }}>
+    <span>IVA (12%):</span>
+    <span>Q{(calculateTotal() - (calculateTotal() / 1.12)).toFixed(2)}</span>
+  </div>
+          
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',

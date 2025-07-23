@@ -13,21 +13,25 @@ export default function PrintTicket({ ticketData, onClose }) {
 
   if (!ticketData) return null;
 
+  console.log('Datos del ticket:', ticketData);
+  console.log('Descuento recibido:', ticketData.discount);
+
   const {
-    orderNumber,
-    customerName,
-    nit,
-    phoneNumber,
-    products,
-    subtotal,
-    discount,
-    total,
-    invoice,
-    paymentMethod,
-    creditEnabled,
-    creditTerms,
-    createdAt
-  } = ticketData;
+  orderNumber,
+  customerName,
+  nit,
+  phoneNumber,
+  products,
+  subtotal,
+  discount,
+  iva,
+  total,
+  invoice,
+  paymentMethod,
+  creditEnabled,
+  creditTerms,
+  createdAt
+} = ticketData;
 
   // Formatear fecha y hora
   const formatDateTime = (date) => {
@@ -45,130 +49,153 @@ export default function PrintTicket({ ticketData, onClose }) {
   return (
     <>
       <style>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #print-ticket, #print-ticket * {
-            visibility: visible;
-          }
-          #print-ticket {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 80mm;
-            font-size: 12px;
-            font-family: 'Courier New', monospace;
-          }
-          .no-print {
-            display: none !important;
-          }
-          @page {
-            margin: 0;
-            size: 80mm auto;
-          }
-        }
-        
-        .ticket-container {
-          width: 80mm;
-          max-width: 300px;
-          margin: 0 auto;
-          padding: 10px;
-          font-family: 'Courier New', monospace;
-          font-size: 12px;
-          background: white;
-          color: black;
-        }
-        
-        .ticket-header {
-          text-align: center;
-          border-bottom: 1px dashed #000;
-          padding-bottom: 10px;
-          margin-bottom: 10px;
-        }
-        
-        .company-name {
-          font-size: 16px;
-          font-weight: bold;
-          margin-bottom: 5px;
-        }
-        
-        .ticket-section {
-          margin: 10px 0;
-          padding: 5px 0;
-          border-bottom: 1px dashed #000;
-        }
-        
-        .ticket-row {
-          display: flex;
-          justify-content: space-between;
-          margin: 3px 0;
-        }
-        
-        .ticket-label {
-          font-weight: bold;
-        }
-        
-        .product-item {
-          margin: 5px 0;
-          padding-left: 10px;
-        }
-        
-        .ticket-totals {
-          margin-top: 10px;
-          border-top: 2px solid #000;
-          padding-top: 10px;
-        }
-        
-        .total-row {
-          display: flex;
-          justify-content: space-between;
-          font-size: 14px;
-          font-weight: bold;
-          margin: 5px 0;
-        }
-        
-        .fel-section {
-          margin-top: 15px;
-          padding: 10px;
-          border: 1px solid #000;
-          text-align: center;
-        }
-        
-        .fel-title {
-          font-weight: bold;
-          margin-bottom: 5px;
-        }
-        
-        .authorization-text {
-          font-size: 10px;
-          word-break: break-all;
-          margin: 5px 0;
-        }
-        
-        .footer-text {
-          text-align: center;
-          margin-top: 20px;
-          font-size: 10px;
-        }
-        
-        .credit-warning {
-          background: #f0f0f0;
-          padding: 10px;
-          margin: 10px 0;
-          border: 2px solid #000;
-          text-align: center;
-          font-weight: bold;
-        }
-      `}</style>
+  @media print {
+    body * {
+      visibility: hidden;
+    }
+    #print-ticket, #print-ticket * {
+      visibility: visible;
+    }
+    #print-ticket {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 80mm;
+      font-size: 14px;
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+    }
+    .no-print {
+      display: none !important;
+    }
+    @page {
+      margin: 0;
+      size: 80mm auto;
+    }
+  }
+  
+  .ticket-container {
+    width: 80mm;
+    max-width: 300px;
+    margin: 0 auto;
+    padding: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    background: white;
+    color: black;
+  }
+  
+  .ticket-header {
+    text-align: center;
+    border-bottom: 2px solid #000;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    font-weight: bold;
+  }
+  
+  .company-name {
+    font-size: 18px;
+    font-weight: 900;
+    margin-bottom: 5px;
+    letter-spacing: 1px;
+  }
+  
+  .ticket-section {
+    margin: 10px 0;
+    padding: 5px 0;
+    border-bottom: 2px solid #000;
+    font-weight: bold;
+  }
+  
+  .ticket-row {
+    display: flex;
+    justify-content: space-between;
+    margin: 4px 0;
+    font-weight: bold;
+  }
+  
+  .ticket-label {
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+  
+  .product-item {
+    margin: 5px 0;
+    padding-left: 10px;
+    font-weight: bold;
+  }
+  
+  .ticket-totals {
+    margin-top: 10px;
+    border-top: 3px solid #000;
+    padding-top: 10px;
+    font-weight: bold;
+  }
+  
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 16px;
+    font-weight: 900;
+    margin: 8px 0;
+    padding: 5px 0;
+    border-top: 2px solid #000;
+    border-bottom: 2px solid #000;
+  }
+  
+  .fel-section {
+    margin-top: 15px;
+    padding: 10px;
+    border: 3px solid #000;
+    text-align: center;
+    font-weight: bold;
+  }
+  
+  .fel-title {
+    font-weight: 900;
+    margin-bottom: 5px;
+    font-size: 14px;
+  }
+  
+  .authorization-text {
+    font-size: 11px;
+    word-break: break-all;
+    margin: 5px 0;
+    font-weight: bold;
+  }
+  
+  .footer-text {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 12px;
+    font-weight: bold;
+  }
+  
+  .footer-text p {
+    margin: 5px 0;
+    font-weight: bold;
+  }
+  
+  .credit-warning {
+    background: #000;
+    color: #fff;
+    padding: 10px;
+    margin: 10px 0;
+    border: 3px solid #000;
+    text-align: center;
+    font-weight: 900;
+    font-size: 14px;
+  }
+`}</style>
 
       <div id="print-ticket" className="ticket-container">
         {/* Header */}
         <div className="ticket-header">
           <div className="company-name">GRUPO REVISA</div>
-          <div>NIT: 819587-3</div>
-          <div>Tel: 2360-4076</div>
-          <div>7a. Av. 2-25 Z.1, Guatemala</div>
+          <div>NIT: 117387487</div>
+          <div>Tel: 22931894</div>
+          <div>ZONA 7 TIKAL 1 13-46 ANILLO PERIFERICO</div>
         </div>
 
         {/* Orden Info */}
@@ -214,22 +241,26 @@ export default function PrintTicket({ ticketData, onClose }) {
         </div>
 
         {/* Totales */}
-        <div className="ticket-totals">
-          <div className="ticket-row">
-            <span>SUBTOTAL:</span>
-            <span>Q{subtotal.toFixed(2)}</span>
-          </div>
-          {discount > 0 && (
-            <div className="ticket-row">
-              <span>DESCUENTO:</span>
-              <span>-Q{discount.toFixed(2)}</span>
-            </div>
-          )}
-          <div className="total-row">
-            <span>TOTAL:</span>
-            <span>Q{total}</span>
-          </div>
-        </div>
+<div className="ticket-totals">
+  <div className="ticket-row">
+    <span>SUBTOTAL:</span>
+    <span>Q{subtotal.toFixed(2)}</span>
+  </div>
+  {discount > 0 && (
+    <div className="ticket-row">
+  <span>DESCUENTO:</span>
+  <span>-Q{(discount || 0).toFixed(2)}</span>
+</div>
+  )}
+  <div className="ticket-row">
+    <span>IVA (12%):</span>
+    <span>Q{iva}</span>
+  </div>
+  <div className="total-row">
+    <span>TOTAL:</span>
+    <span>Q{total}</span>
+  </div>
+</div>
 
         {/* Método de Pago */}
         <div className="ticket-section">

@@ -99,4 +99,59 @@ export class GoogleSheetsAPI {
       throw error;
     }
   }
+
+  async getInvoices(searchQuery = '') {
+    try {
+      if (!this.sheets) {
+        await this.authenticate();
+      }
+
+      console.log('📊 Obteniendo facturas de Google Sheets...');
+      
+      // Leer todas las filas de la hoja
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.sheetId,
+        range: 'A2:O', // Desde la fila 2 para saltar headers
+      });
+
+      const rows = response.data.values || [];
+      console.log(`📊 Total de facturas encontradas: ${rows.length}`);
+
+      // Mapear los datos a objetos
+      const invoices = rows.map((row, index) => ({
+        id: index + 2, // ID de fila (empezando desde 2)
+        orderNumber: row[0] || '',
+        productosJSON: row[1] || '{}',
+        totalGeneral: row[2] || '0',
+        totalIVA: row[3] || '0',
+        nit: row[4] || '',
+        nombreNIT: row[5] || '',
+        uuid: row[6] || '',
+        serie: row[7] || '',
+        noAutorizacion: row[8] || '',
+        fecha: row[9] || '',
+        estado: row[10] || '',
+        pdfURL: row[11] || '',
+        direccionJSON: row[12] || '{}',
+        numeroTelefono: row[13] || '',
+        canalVenta: row[14] || ''
+      }));
+
+      // Filtrar si hay búsqueda
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return invoices.filter(invoice => 
+          invoice.orderNumber.toLowerCase().includes(query) ||
+          invoice.nit.toLowerCase().includes(query) ||
+          invoice.nombreNIT.toLowerCase().includes(query)
+        );
+      }
+
+      return invoices;
+    } catch (error) {
+      console.error('❌ Error obteniendo facturas:', error);
+      throw error;
+    }
+  }
+
 }

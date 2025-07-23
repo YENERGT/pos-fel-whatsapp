@@ -166,6 +166,43 @@ class FelAPI {
   
   return invoiceData;
 }
+
+async cancelInvoice(uuid, reason = "Anulación") {
+    try {
+      const url = `${this.baseURL}/api/entity/${this.empresaId}/invoices/${uuid}`;
+      console.log('🚫 Anulando factura en FEL:', url);
+      
+      const response = await axios.delete(url, {
+        headers: {
+          'Accept': 'application/json',
+          'X-Authorization': this.apiKey,
+          'Content-Type': 'application/json'
+        },
+        data: {
+          reason: reason
+        }
+      });
+      
+      console.log('✅ Respuesta de anulación:', response.data);
+      return response.data;
+      
+    } catch (error) {
+      console.error('❌ Error anulando factura en FEL:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      if (error.response?.status === 404) {
+        throw new Error('Factura no encontrada');
+      } else if (error.response?.status === 400) {
+        throw new Error('La factura ya fue anulada o no puede ser anulada');
+      }
+      
+      throw error;
+    }
+  }
+
 }
 
 // Exportar la clase
