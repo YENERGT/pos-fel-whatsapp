@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vista Previa - Ticket POS</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .ticket-container {
+            width: 300px;
+            background: white;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .ticket-header {
+            text-align: center;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .company-name {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .ticket-section {
+            margin: 10px 0;
+            padding: 5px 0;
+            border-bottom: 1px dashed #000;
+        }
+        
+        .ticket-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
+        }
+        
+        .ticket-label {
+            font-weight: bold;
+        }
+        
+        .product-item {
+            margin: 5px 0;
+            padding-left: 10px;
+        }
+        
+        .ticket-totals {
+            margin-top: 10px;
+            border-top: 2px solid #000;
+            padding-top: 10px;
+        }
+        
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .fel-section {
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px solid #000;
+            text-align: center;
+        }
+        
+        .fel-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .authorization-text {
+            font-size: 10px;
+            word-break: break-all;
+            margin: 5px 0;
+        }
+        
+        .footer-text {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 10px;
+        }
+        
+        .credit-warning {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border: 2px solid #000;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="ticket-container">
+        <!-- Header -->
+        <div class="ticket-header">
+            <div class="company-name">GRUPO REVISA</div>
+            <div>NIT: 117387487</div>
+            <div>Tel: 22931894</div>
+            <div>ZONA 7 TIKAL 1 13-46 ANILLO PERIFERICO</div>
+        </div>
+
+        <!-- Orden Info -->
+        <div class="ticket-section">
+            <div class="ticket-row">
+                <span class="ticket-label">ORDEN #:</span>
+                <span>#1234</span>
+            </div>
+            <div class="ticket-row">
+                <span class="ticket-label">FECHA:</span>
+                <span>23/07/2025 10:30 AM</span>
+            </div>
+        </div>
+
+        <!-- Cliente Info -->
+        <div class="ticket-section">
+            <div class="ticket-row">
+                <span class="ticket-label">CLIENTE:</span>
+                <span>Juan Pérez</span>
+            </div>
+            <div class="ticket-row">
+                <span class="ticket-label">NIT:</span>
+                <span>12345678</span>
+            </div>
+            <div class="ticket-row">
+                <span class="ticket-label">TEL:</span>
+                <span>+502 5555-5555</span>
+            </div>
+        </div>
+
+        <!-- Productos -->
+        <div class="ticket-section">
+            <div class="ticket-label">PRODUCTOS:</div>
+            <div class="product-item">
+                <div>2 x Producto Ejemplo 1</div>
+                <div class="ticket-row">
+                    <span>Q50.00 c/u</span>
+                    <span>Q100.00</span>
+                </div>
+            </div>
+            <div class="product-item">
+                <div>1 x Producto Ejemplo 2</div>
+                <div class="ticket-row">
+                    <span>Q75.00 c/u</span>
+                    <span>Q75.00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Totales -->
+        <div class="ticket-totals">
+            <div class="ticket-row">
+                <span>SUBTOTAL:</span>
+                <span>Q175.00</span>
+            </div>
+            <div class="ticket-row">
+                <span>DESCUENTO:</span>
+                <span>-Q25.00</span>
+            </div>
+            <div class="total-row">
+                <span>TOTAL:</span>
+                <span>Q150.00</span>
+            </div>
+        </div>
+
+        <!-- Método de Pago -->
+        <div class="ticket-section">
+            <div class="ticket-row">
+                <span class="ticket-label">PAGO:</span>
+                <span>Efectivo</span>
+            </div>
+        </div>
+
+        <!-- Información FEL -->
+        <div class="fel-section">
+            <div class="fel-title">FACTURA ELECTRÓNICA FEL</div>
+            <div class="ticket-row">
+                <span>SERIE:</span>
+                <span>FACE63</span>
+            </div>
+            <div class="ticket-row">
+                <span>NÚMERO:</span>
+                <span>12345</span>
+            </div>
+            <div class="authorization-text">
+                AUTORIZACIÓN SAT:<br/>
+                8B2E6FAC-1234-5678-9ABC-DEF123456789
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer-text">
+            <p>¡GRACIAS POR SU COMPRA!</p>
+            <p>Factura enviada por WhatsApp</p>
+            <p>----------------------------</p>
+            <p>CONSERVE ESTE COMPROBANTE</p>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 20px;">
+        <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px;">
+            Imprimir Ticket
+        </button>
+    </div>
+</body>
+</html>

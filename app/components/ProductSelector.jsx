@@ -257,7 +257,7 @@ useEffect(() => {
     : numericValue;
   
   if (onDiscountChange) {
-    onDiscountChange(discountAmount);
+    onDiscountChange(discountAmount, type);
   }
 };
 

@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { Form, useLoaderData } from '@remix-run/react';
 import ProductSelector from './ProductSelector';
 import NotificationBanner from './NotificationBanner';
-import PrintTicket from './PrintTicket';
 
 export default function POSInterface() {
   const [customerType, setCustomerType] = useState('existing');
@@ -25,43 +24,7 @@ export default function POSInterface() {
   const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(false);
   const [creditEnabled, setCreditEnabled] = useState(false);
   const [creditTerms, setCreditTerms] = useState(''); // '15' o '30' días
-  const [showPrintTicket, setShowPrintTicket] = useState(false);
-  const [ticketData, setTicketData] = useState(null);
-
-  // Mapeo de métodos de pago
-  const paymentMethodNames = {
-    cash: 'Efectivo',
-    gift_card: 'Tarjeta de regalo',
-    store_credit: 'Crédito en tienda',
-    bank_deposit: 'Depósito bancario',
-    ebay: 'eBay',
-    stripe: 'Stripe',
-    visanet_pos: 'VISANET POS',
-    credit: 'Crédito - Pendiente de pago'
-  };
-
-  // Estado para tipo de descuento
-  const [discountType, setDiscountType] = useState('Q');
-
-  // Funciones de cálculo
-  const calculateSubtotal = () => {
-    return selectedProducts.reduce((sum, p) => sum + (parseFloat(p.price) * p.quantity), 0);
-  };
-
-  const calculateDiscountAmount = () => {
-    const subtotal = calculateSubtotal();
-    if (discountType === '%') {
-      return subtotal * (globalDiscount / 100);
-    }
-    return parseFloat(globalDiscount) || 0;
-  };
-
-  const calculateTotal = () => {
-    const subtotal = calculateSubtotal();
-    const discountAmount = calculateDiscountAmount();
-    return (subtotal - discountAmount).toFixed(2);
-  };
-
+  
   // Estados para notificaciones
   const [notification, setNotification] = useState({
     show: false,
@@ -746,10 +709,10 @@ const processSale = async () => {
   }
 
   // Validar términos de crédito si está habilitado
-  if (creditEnabled && !creditTerms) {
-    showNotification('error', 'Debe seleccionar los términos de crédito');
-    return;
-  }
+if (creditEnabled && !creditTerms) {
+  showNotification('error', 'Debe seleccionar los términos de crédito');
+  return;
+}
 
   // Validar cliente
   if (customerType === 'existing' && !selectedCustomer) {
@@ -780,115 +743,72 @@ const processSale = async () => {
   setProcessing(true);
   setError('');
 
-  // DECLARAR customerData ANTES DEL TRY-CATCH
-  let customerData = null;
+  // ... resto del código de processSale ...
 
-  try {
-    const requestData = {
-      customerType: customerType,
-      phoneNumber: phoneNumber,
-      products: selectedProducts,
-      discountTotal: globalDiscount || 0,
-      paymentMethod: paymentMethod,
-      creditEnabled: creditEnabled,
-      creditTerms: creditTerms
-    };
-
-    // Agregar datos según el tipo de cliente
-    if (customerType === 'existing') {
-      requestData.existingCustomerId = selectedCustomer.id;
-      requestData.nit = {
-        tax_code: selectedCustomer.nit,
-        tax_name: selectedCustomer.displayName
-      };
-      // ASIGNAR customerData aquí
-      customerData = {
-        id: selectedCustomer.id,
-        nit: selectedCustomer.nit,
-        name: selectedCustomer.displayName
-      };
-    } else {
-      requestData.nit = nitSearchResult;
-      // ASIGNAR customerData aquí
-      customerData = {
-        id: null,
-        nit: nitSearchResult?.tax_code || "CF",
-        name: nitSearchResult?.tax_name || "CONSUMIDOR FINAL"
-      };
-    }
-
-    const response = await fetch('/api/process-sale', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestData)
-    });
-
-    const result = await response.json();
-
-    if (result.success) {
-      // Calcular valores antes de limpiar el formulario
-      const subtotalValue = calculateSubtotal();
-      const discountValue = calculateDiscountAmount();
-      const totalValue = calculateTotal();
-      
-      // Preparar datos para el ticket
-      const printData = {
-        orderNumber: result.order.number,
-        customerName: customerData.name, // AHORA customerData ESTÁ DEFINIDA
-        nit: customerData.nit,
-        phoneNumber: phoneNumber,
-        products: [...selectedProducts],
-        subtotal: subtotalValue,
-        discount: discountValue,
-        total: result.order.total,
-        invoice: {
-          serie: result.invoice.number.split('-')[0],
-          number: result.invoice.number.split('-')[1],
-          authorization: result.invoice.authorization
-        },
-        paymentMethod: paymentMethodNames[paymentMethod],
-        creditEnabled: creditEnabled,
-        creditTerms: creditTerms,
-        createdAt: new Date().toISOString()
-      };
-      
-      // Establecer datos del ticket y mostrar
-      setTicketData(printData);
-      setShowPrintTicket(true);
-      
-      // Mostrar notificación de éxito
-      let successMessage = `Orden: ${result.order.number} | Total: Q${result.order.total}`;
-      let successDetails = `Factura: ${result.invoice.number} | Autorización: ${result.invoice.authorization}`;
-      
-      if (result.order.creditEnabled) {
-        successDetails += ` | CRÉDITO: ${result.order.creditTerms} días`;
-      }
-      
-      showNotification('success', successMessage, successDetails);
-      
-      // Limpiar el formulario
-      resetForm();
-      
-    } else {
-      // Mostrar notificación de error
-      showNotification('error', result.error || 'Error al procesar la venta');
-      setProcessing(false);
-    }
-  } catch (err) {
-    // Mostrar notificación de error
-    showNotification('error', 'Error de conexión al procesar la venta', err.message);
-    console.error(err);
-    setProcessing(false);
-  }
+    try {
+      const requestData = {
+  customerType: customerType,
+  phoneNumber: phoneNumber,
+  products: selectedProducts,
+  discountTotal: globalDiscount || 0,
+  paymentMethod: paymentMethod, // Agregar método de pago
+  creditEnabled: creditEnabled,      // AGREGAR
+  creditTerms: creditTerms           // AGREGAR
 };
 
+      // Agregar datos según el tipo de cliente
+      if (customerType === 'existing') {
+        requestData.existingCustomerId = selectedCustomer.id;
+        requestData.nit = {
+          tax_code: selectedCustomer.nit,
+          tax_name: selectedCustomer.displayName
+        };
+      } else {
+        requestData.nit = nitSearchResult;
+      }
+
+      const response = await fetch('/api/process-sale', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+  // Mostrar notificación de éxito con detalles
+  let successMessage = `Orden: ${result.order.number} | Total: Q${result.order.total}`;
+  let successDetails = `Factura: ${result.invoice.number} | Autorización: ${result.invoice.authorization}`;
+  
+  // Agregar información de crédito si aplica
+  if (result.order.creditEnabled) {
+    successDetails += ` | CRÉDITO: ${result.order.creditTerms} días`;
+  }
+  
+  showNotification('success', successMessage, successDetails);
+  
+  // Limpiar el formulario inmediatamente
+  resetForm();
+  
+} else {
+        // Mostrar notificación de error
+        showNotification('error', result.error || 'Error al procesar la venta');
+        setProcessing(false);
+      }
+    } catch (err) {
+      // Mostrar notificación de error
+      showNotification('error', 'Error de conexión al procesar la venta', err.message);
+      console.error(err);
+      setProcessing(false);
+    }
+  };
+
   // Handler para cambios en el descuento
-const handleDiscountChange = (discount, type = 'Q') => {
-  setGlobalDiscount(discount);
-  setDiscountType(type);
-}
+  const handleDiscountChange = (discount) => {
+    setGlobalDiscount(discount);
+  };
 
   const tabStyle = (isActive) => ({
     padding: '10px 20px',
@@ -1888,17 +1808,6 @@ const handleDiscountChange = (discount, type = 'Q') => {
           </div>
         </div>
       </div>
-
-      {/* Componente de impresión de ticket */}
-            {showPrintTicket && (
-              <PrintTicket
-                ticketData={ticketData}
-                onClose={() => {
-                  setShowPrintTicket(false);
-                  setTicketData(null);
-                }}
-              />
-            )}
-          </>
-    );
+    </>
+  );
 }
