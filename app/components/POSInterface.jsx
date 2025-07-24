@@ -166,7 +166,7 @@ const theme = isDarkMode ? themes.dark : themes.light;
 
 // Estilos CSS mejorados
 const styles = {
-  container: {
+    container: {
     padding: '20px',
     maxWidth: '1400px',
     margin: '0 auto',
@@ -956,13 +956,13 @@ const handleDiscountChange = (discount, type = 'Q') => {
     </h1>
   </div>
 </div>
-        {/* Botón de cambio de tema */}
-        <div style={{ 
-          position: 'fixed',
-          top: '20px',
-          left: '20px',
-          zIndex: 1000
-        }}>
+{/* Botón de cambio de tema */}
+<div style={{ 
+  position: 'fixed',
+  top: '20px',
+  left: '20px',
+  zIndex: 1000
+}}>
           <button
             onClick={toggleTheme}
             style={{

@@ -154,4 +154,32 @@ export class GoogleSheetsAPI {
     }
   }
 
+async updateInvoiceStatus(rowId, status) {
+    try {
+      if (!this.sheets) {
+        await this.authenticate();
+      }
+
+      console.log(`📝 Actualizando estado de factura en fila ${rowId} a: ${status}`);
+      
+      // La columna K es la columna 11 (A=1, B=2, ..., K=11)
+      const range = `K${rowId}`;
+      
+      const response = await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.sheetId,
+        range: range,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [[status]]
+        }
+      });
+
+      console.log('✅ Estado actualizado en Google Sheets columna K:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Error actualizando estado en Google Sheets:', error);
+      throw error;
+    }
+  }
+
 }

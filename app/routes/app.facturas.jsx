@@ -156,7 +156,8 @@ export default function Facturas() {
         },
         body: JSON.stringify({
           uuid: invoice.uuid,
-          reason: `Anulación de factura ${invoice.orderNumber}`
+          reason: `Anulación de factura ${invoice.orderNumber}`,
+          sheetRowId: invoice.id // Pasar el ID de la fila
         })
       });
 
@@ -178,6 +179,47 @@ export default function Facturas() {
 
   return (
     <>
+      <style>{`
+        @media (max-width: 768px) {
+          .responsive-table {
+            font-size: 12px;
+          }
+          
+          .responsive-table th,
+          .responsive-table td {
+            padding: 8px 4px;
+          }
+          
+          .mobile-hide {
+            display: none;
+          }
+          
+          .action-buttons {
+            flex-direction: column;
+            gap: 4px !important;
+          }
+          
+          .action-button {
+            padding: 4px 8px !important;
+            font-size: 12px !important;
+            white-space: nowrap;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .responsive-table {
+            display: block;
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+          }
+          
+          .responsive-table table {
+            min-width: 600px;
+          }
+        }
+      `}</style>
+
       <div style={{
         padding: '20px',
         maxWidth: '1400px',
@@ -194,7 +236,9 @@ export default function Facturas() {
           padding: '20px',
           background: 'white',
           borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          flexWrap: 'wrap',
+          gap: '12px'
         }}>
           <h1 style={{
             fontSize: '28px',
@@ -204,7 +248,7 @@ export default function Facturas() {
           }}>
             📋 Búsqueda de Facturas
           </h1>
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             <Link to="/pos" style={{
               padding: '12px 24px',
               background: '#008060',
@@ -288,93 +332,98 @@ export default function Facturas() {
               <p>No se encontraron facturas</p>
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#f8f9fa' }}>
-                  <th style={thStyle}>Orden</th>
-                  <th style={thStyle}>Fecha</th>
-                  <th style={thStyle}>Cliente</th>
-                  <th style={thStyle}>NIT</th>
-                  <th style={thStyle}>Total</th>
-                  <th style={thStyle}>Serie</th>
-                  <th style={thStyle}>Estado</th>
-                  <th style={thStyle}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredInvoices.map((invoice, index) => (
-                  <tr key={invoice.uuid || index} style={{
-                    borderBottom: '1px solid #e0e0e0',
-                    transition: 'background 0.2s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = '#f8f9fa'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-                  >
-                    <td style={tdStyle}>
-                      <strong>{invoice.orderNumber}</strong>
-                    </td>
-                    <td style={tdStyle}>
-                      {new Date(invoice.fecha).toLocaleDateString('es-GT')}
-                    </td>
-                    <td style={tdStyle}>{invoice.nombreNIT}</td>
-                    <td style={tdStyle}>{invoice.nit}</td>
-                    <td style={tdStyle}>
-                      <strong>Q{invoice.totalGeneral}</strong>
-                    </td>
-                    <td style={tdStyle}>{invoice.serie}</td>
-                    <td style={tdStyle}>
-                      <span style={{
-                        padding: '4px 12px',
-                        borderRadius: '20px',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                        background: invoice.estado === 'paid' ? '#e3f4e8' : '#fee',
-                        color: invoice.estado === 'paid' ? '#00aa00' : '#ff0000'
-                      }}>
-                        {invoice.estado === 'paid' ? 'PAGADA' : 'ANULADA'}
-                      </span>
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          onClick={() => handlePrint(invoice)}
-                          style={{
-                            padding: '6px 12px',
-                            background: '#0066cc',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '14px'
-                          }}
-                          title="Imprimir ticket"
-                        >
-                          🖨️ Imprimir
-                        </button>
-                        {invoice.estado === 'paid' && (
+            <div className="responsive-table">
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f8f9fa' }}>
+                    <th style={thStyle}>Orden</th>
+                    <th style={thStyle} className="mobile-hide">Fecha</th>
+                    <th style={thStyle}>Cliente</th>
+                    <th style={thStyle} className="mobile-hide">NIT</th>
+                    <th style={thStyle}>Total</th>
+                    <th style={thStyle} className="mobile-hide">Serie</th>
+                    <th style={thStyle}>Estado</th>
+                    <th style={thStyle}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredInvoices.map((invoice, index) => (
+                    <tr key={invoice.uuid || index} style={{
+                      borderBottom: '1px solid #e0e0e0',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f8f9fa'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                    >
+                      <td style={tdStyle}>
+                        <strong>{invoice.orderNumber}</strong>
+                      </td>
+                      <td style={tdStyle} className="mobile-hide">
+                        {new Date(invoice.fecha).toLocaleDateString('es-GT')}
+                      </td>
+                      <td style={tdStyle}>{invoice.nombreNIT}</td>
+                      <td style={tdStyle} className="mobile-hide">{invoice.nit}</td>
+                      <td style={tdStyle}>
+                        <strong>Q{invoice.totalGeneral}</strong>
+                      </td>
+                      <td style={tdStyle} className="mobile-hide">{invoice.serie}</td>
+                      <td style={tdStyle}>
+                        <span style={{
+                          padding: '4px 12px',
+                          borderRadius: '20px',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          background: invoice.estado === 'paid' ? '#e3f4e8' : '#fee',
+                          color: invoice.estado === 'paid' ? '#00aa00' : '#ff0000'
+                        }}>
+                          {invoice.estado === 'paid' ? 'PAGADA' : 
+ invoice.estado === 'ANULADO - DEVOLUCIÓN' ? 'DEVUELTA' : 'ANULADA'}
+                        </span>
+                      </td>
+                      <td style={tdStyle}>
+                        <div className="action-buttons" style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                           <button
-                            onClick={() => handleCancel(invoice)}
-                            disabled={cancellingId === invoice.uuid}
+                            className="action-button"
+                            onClick={() => handlePrint(invoice)}
                             style={{
                               padding: '6px 12px',
-                              background: cancellingId === invoice.uuid ? '#ccc' : '#ff4444',
+                              background: '#0066cc',
                               color: 'white',
                               border: 'none',
                               borderRadius: '4px',
-                              cursor: cancellingId === invoice.uuid ? 'default' : 'pointer',
+                              cursor: 'pointer',
                               fontSize: '14px'
                             }}
-                            title="Anular factura"
+                            title="Imprimir ticket"
                           >
-                            {cancellingId === invoice.uuid ? '⏳' : '❌'} Anular
+                            🖨️ Imprimir
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                          {invoice.estado === 'paid' && (
+                            <button
+                              className="action-button"
+                              onClick={() => handleCancel(invoice)}
+                              disabled={cancellingId === invoice.uuid}
+                              style={{
+                                padding: '6px 12px',
+                                background: cancellingId === invoice.uuid ? '#ccc' : '#ff4444',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: cancellingId === invoice.uuid ? 'default' : 'pointer',
+                                fontSize: '14px'
+                              }}
+                              title="Anular factura"
+                            >
+                              {cancellingId === invoice.uuid ? '⏳' : '❌'} Anular
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
