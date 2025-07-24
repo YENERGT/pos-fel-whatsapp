@@ -1,6 +1,14 @@
-// app/routes/facturas.jsx
+// app/routes/app.facturas.jsx
 import { useState, useEffect } from 'react';
+import { json } from "@remix-run/node";
+import { Link } from "@remix-run/react";
+import { authenticate } from "../shopify.server";
 import PrintTicket from '../components/PrintTicket';
+
+export const loader = async ({ request }) => {
+  await authenticate.admin(request);
+  return json({ ok: true });
+};
 
 export default function Facturas() {
   const [invoices, setInvoices] = useState([]);
@@ -89,9 +97,9 @@ export default function Facturas() {
         });
       }
       
-console.log('Productos del invoice:', productos);
-console.log('Descuento calculado:', descuentoTotal);
-console.log('Items con descuento:', productos.items);
+      console.log('Productos del invoice:', productos);
+      console.log('Descuento calculado:', descuentoTotal);
+      console.log('Items con descuento:', productos.items);
 
       // Definir las variables
       const totalConIVA = parseFloat(invoice.totalGeneral);
@@ -168,7 +176,7 @@ console.log('Items con descuento:', productos.items);
     }
   };
 
-return (
+  return (
     <>
       <div style={{
         padding: '20px',
@@ -196,16 +204,28 @@ return (
           }}>
             📋 Búsqueda de Facturas
           </h1>
-          <a href="/pos" style={{
-            padding: '12px 24px',
-            background: '#008060',
-            color: 'white',
-            textDecoration: 'none',
-            borderRadius: '8px',
-            fontWeight: 'bold'
-          }}>
-            ← Volver al POS
-          </a>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <Link to="/pos" style={{
+              padding: '12px 24px',
+              background: '#008060',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: '8px',
+              fontWeight: 'bold'
+            }}>
+              🛒 Ir al POS
+            </Link>
+            <Link to="/app" style={{
+              padding: '12px 24px',
+              background: '#666',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: '8px',
+              fontWeight: 'bold'
+            }}>
+              ← Volver
+            </Link>
+          </div>
         </div>
 
         {/* Buscador */}

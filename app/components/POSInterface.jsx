@@ -997,45 +997,7 @@ const handleDiscountChange = (discount, type = 'Q') => {
             <span>{isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}</span>
           </button>
         </div>      
-         {/* Botón de búsqueda de facturas */}
-        <div style={{ 
-          position: 'fixed',
-          top: '80px', // Cambiado de 20px a 80px para estar debajo del otro botón
-          left: '20px', // Cambiado de right a left
-          zIndex: 1000
-        }}>
-          <a href="/facturas"
-            style={{
-              display: 'inline-flex',
-              padding: '12px 20px',
-              background: 'linear-gradient(135deg, rgba(0, 102, 204, 0.8) 0%, rgba(0, 128, 255, 0.8) 100%)',
-              backdropFilter: 'blur(10px)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '30px',
-              cursor: 'pointer',
-              fontSize: '16px',
-              fontWeight: 'bold',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: `0 4px 12px ${theme.shadowColor}`,
-              transition: 'all 0.3s ease',
-              textDecoration: 'none'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.05)';
-              e.currentTarget.style.boxShadow = `0 6px 16px ${theme.shadowColor}`;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.boxShadow = `0 4px 12px ${theme.shadowColor}`;
-            }}
-          >
-            <span style={{ fontSize: '20px' }}>📋</span>
-            <span>Buscar Facturas</span>
-          </a>
-        </div>
-        
+         
         <div className="main-grid" style={styles.mainGrid}>
           {/* Panel de cliente mejorado */}
           <div

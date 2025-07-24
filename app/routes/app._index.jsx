@@ -37,9 +37,10 @@ export default function Index() {
             <li style={{ marginBottom: '8px' }}>✓ Crear facturas electrónicas</li>
             <li style={{ marginBottom: '8px' }}>✓ Enviar facturas por WhatsApp</li>
             <li style={{ marginBottom: '8px' }}>✓ Gestionar pedidos desde POS</li>
+            <li style={{ marginBottom: '8px' }}>✓ Buscar y anular facturas</li>
           </ul>
           
-          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link 
               to="/pos" 
               style={{
@@ -52,7 +53,22 @@ export default function Index() {
                 fontWeight: 'bold'
               }}
             >
-              Abrir POS
+              🛒 Abrir POS
+            </Link>
+            
+            <Link 
+              to="/app/facturas" 
+              style={{
+                display: 'inline-block',
+                padding: '12px 24px',
+                background: '#0066cc',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '4px',
+                fontWeight: 'bold'
+              }}
+            >
+              📋 Buscar Facturas
             </Link>
             
             <Link 
@@ -67,7 +83,7 @@ export default function Index() {
                 fontWeight: 'bold'
               }}
             >
-              Configuración
+              ⚙️ Configuración
             </Link>
           </div>
         </div>

@@ -22,7 +22,9 @@ export default function App() {
         <Link to="/app" rel="home">
           Home
         </Link>
-        <Link to="/app/additional">Additional page</Link>
+        <Link to="/pos">POS</Link>
+        <Link to="/app/facturas">Facturas</Link>
+        <Link to="/app/settings">Configuración</Link>
       </NavMenu>
       <Outlet />
     </AppProvider>

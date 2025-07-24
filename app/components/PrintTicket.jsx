@@ -303,29 +303,6 @@ export default function PrintTicket({ ticketData, onClose }) {
           <p>CONSERVE ESTE COMPROBANTE</p>
         </div>
       </div>
-
-      {/* Botón de cerrar (no se imprime) */}
-      <div className="no-print" style={{
-        position: 'fixed',
-        top: '20px',
-        right: '20px',
-        zIndex: 1000
-      }}>
-        <button
-          onClick={onClose}
-          style={{
-            padding: '10px 20px',
-            background: '#ff4444',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '16px'
-          }}
-        >
-          Cerrar Vista Previa
-        </button>
-      </div>
     </>
   );
 }
