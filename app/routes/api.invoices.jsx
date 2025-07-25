@@ -1,6 +1,7 @@
 // app/routes/api.invoices.jsx
 import { json } from "@remix-run/node";
 import { GoogleSheetsAPI } from "../utils/google-sheets.js";
+import { isDateInRange } from "../utils/date-utils.js";
 
 export const loader = async ({ request }) => {
   try {
@@ -59,14 +60,15 @@ export const loader = async ({ request }) => {
 
     // Filtrar si hay búsqueda
     let filteredInvoices = invoices;
-    if (search) {
-      const query = search.toLowerCase();
-      filteredInvoices = invoices.filter(invoice => 
-        invoice.orderNumber.toLowerCase().includes(query) ||
-        invoice.nit.toLowerCase().includes(query) ||
-        invoice.nombreNIT.toLowerCase().includes(query)
-      );
-    }
+if (search) {
+  const query = search.toLowerCase();
+  filteredInvoices = invoices.filter(invoice => 
+    invoice.orderNumber.toLowerCase().includes(query) ||
+    invoice.nit.toLowerCase().includes(query) ||
+    invoice.nombreNIT.toLowerCase().includes(query) ||
+    isDateInRange(invoice.fecha, query) // ← NUEVA LÍNEA: Búsqueda por fecha
+  );
+}
     
     return json({
       success: true,

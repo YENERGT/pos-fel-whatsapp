@@ -4,6 +4,8 @@ import { json } from "@remix-run/node";
 import { Link } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import PrintTicket from '../components/PrintTicket';
+import { isDateInRange } from '../utils/date-utils';
+import { parseDateFormats, formatDateForSearch } from '../utils/date-utils';
 
 export const loader = async ({ request }) => {
   await authenticate.admin(request);
@@ -58,28 +60,30 @@ export default function Facturas() {
 
   // Filtrar facturas cuando cambie el término de búsqueda
   useEffect(() => {
-    if (searchTerm) {
-      const filtered = invoices.filter(invoice => 
-        invoice.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        invoice.nit.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      // Mantener el orden por número de orden descendente después de filtrar
-      filtered.sort((a, b) => {
-        const getOrderNumber = (orderStr) => {
-          const match = orderStr.match(/#?(\d+)/);
-          return match ? parseInt(match[1]) : 0;
-        };
-        
-        const orderA = getOrderNumber(a.orderNumber);
-        const orderB = getOrderNumber(b.orderNumber);
-        
-        return orderB - orderA;
-      });
-      setFilteredInvoices(filtered);
-    } else {
-      setFilteredInvoices(invoices);
-    }
-  }, [searchTerm, invoices]);
+  if (searchTerm) {
+    const filtered = invoices.filter(invoice => 
+      invoice.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.nit.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.nombreNIT.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      isDateInRange(invoice.fecha, searchTerm) // ← NUEVA LÍNEA: Búsqueda por fecha
+    );
+    // Mantener el orden por número de orden descendente después de filtrar
+    filtered.sort((a, b) => {
+      const getOrderNumber = (orderStr) => {
+        const match = orderStr.match(/#?(\d+)/);
+        return match ? parseInt(match[1]) : 0;
+      };
+      
+      const orderA = getOrderNumber(a.orderNumber);
+      const orderB = getOrderNumber(b.orderNumber);
+      
+      return orderB - orderA;
+    });
+    setFilteredInvoices(filtered);
+  } else {
+    setFilteredInvoices(invoices);
+  }
+}, [searchTerm, invoices]);
 
   const handlePrint = (invoice) => {
     try {
@@ -359,7 +363,14 @@ export default function Facturas() {
                         <strong>{invoice.orderNumber}</strong>
                       </td>
                       <td style={tdStyle} className="mobile-hide">
-                        {new Date(invoice.fecha).toLocaleDateString('es-GT')}
+                         {(() => {
+    const parsedDate = parseDateFormats(invoice.fecha);
+    if (parsedDate) {
+      return formatDateForSearch(parsedDate);
+    }
+    // Fallback si no se puede parsear
+    return invoice.fecha || 'Sin fecha';
+  })()}
                       </td>
                       <td style={tdStyle}>{invoice.nombreNIT}</td>
                       <td style={tdStyle} className="mobile-hide">{invoice.nit}</td>
