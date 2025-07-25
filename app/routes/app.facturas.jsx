@@ -22,36 +22,27 @@ export default function Facturas() {
   const [ticketData, setTicketData] = useState(null);
 
   // Función para cargar facturas
-  const loadInvoices = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/invoices');
-      const data = await response.json();
+  // REEMPLAZAR la función loadInvoices en app/routes/app.facturas.jsx (líneas ~27-45)
+
+const loadInvoices = async () => {
+  setLoading(true);
+  try {
+    const response = await fetch('/api/invoices');
+    const data = await response.json();
+    
+    if (data.success) {
+      // Ya no necesitamos ordenar aquí, el backend ya ordena y limita
+      console.log(`📊 Cargadas ${data.showing} facturas de ${data.total} totales`);
       
-      if (data.success) {
-        // Ordenar facturas por número de orden (más alto primero = más reciente)
-        const sortedInvoices = data.invoices.sort((a, b) => {
-          // Extraer el número de la orden (ej: #1005 -> 1005)
-          const getOrderNumber = (orderStr) => {
-            const match = orderStr.match(/#?(\d+)/);
-            return match ? parseInt(match[1]) : 0;
-          };
-          
-          const orderA = getOrderNumber(a.orderNumber);
-          const orderB = getOrderNumber(b.orderNumber);
-          
-          return orderB - orderA; // Orden descendente (más alto primero)
-        });
-        
-        setInvoices(sortedInvoices);
-        setFilteredInvoices(sortedInvoices);
-      }
-    } catch (error) {
-      console.error('Error cargando facturas:', error);
-    } finally {
-      setLoading(false);
+      setInvoices(data.invoices);
+      setFilteredInvoices(data.invoices);
     }
-  };
+  } catch (error) {
+    console.error('Error cargando facturas:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Cargar facturas al iniciar
   useEffect(() => {
@@ -59,30 +50,41 @@ export default function Facturas() {
   }, []);
 
   // Filtrar facturas cuando cambie el término de búsqueda
-  useEffect(() => {
-  if (searchTerm) {
-    const filtered = invoices.filter(invoice => 
-      invoice.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.nit.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.nombreNIT.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      isDateInRange(invoice.fecha, searchTerm) // ← NUEVA LÍNEA: Búsqueda por fecha
-    );
-    // Mantener el orden por número de orden descendente después de filtrar
-    filtered.sort((a, b) => {
-      const getOrderNumber = (orderStr) => {
-        const match = orderStr.match(/#?(\d+)/);
-        return match ? parseInt(match[1]) : 0;
-      };
-      
-      const orderA = getOrderNumber(a.orderNumber);
-      const orderB = getOrderNumber(b.orderNumber);
-      
-      return orderB - orderA;
-    });
-    setFilteredInvoices(filtered);
-  } else {
+  // Función para hacer búsqueda en el servidor
+const searchInvoices = async (searchTerm) => {
+  if (!searchTerm.trim()) {
+    // Si no hay término de búsqueda, usar las facturas iniciales (20 más recientes)
     setFilteredInvoices(invoices);
+    return;
   }
+
+  setLoading(true);
+  try {
+    const response = await fetch(`/api/invoices?search=${encodeURIComponent(searchTerm)}`);
+    const data = await response.json();
+    
+    if (data.success) {
+      console.log(`🔍 Búsqueda "${searchTerm}": ${data.showing} resultados encontrados`);
+      setFilteredInvoices(data.invoices);
+    } else {
+      console.error('Error en búsqueda:', data.error);
+      setFilteredInvoices([]);
+    }
+  } catch (error) {
+    console.error('Error buscando facturas:', error);
+    setFilteredInvoices([]);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Efecto que se ejecuta con delay cuando cambia el término de búsqueda
+useEffect(() => {
+  const timeoutId = setTimeout(() => {
+    searchInvoices(searchTerm);
+  }, 300); // Delay de 300ms para evitar búsquedas excesivas mientras el usuario escribe
+
+  return () => clearTimeout(timeoutId);
 }, [searchTerm, invoices]);
 
   const handlePrint = (invoice) => {
@@ -316,6 +318,26 @@ export default function Facturas() {
               🔍
             </span>
           </div>
+
+          {/* Indicador de cantidad de facturas */}
+          <div style={{ 
+  textAlign: 'center', 
+  margin: '10px 0', 
+  padding: '8px 16px',
+  background: searchTerm ? '#f0f9ff' : '#e8f4fd',
+  border: `1px solid ${searchTerm ? '#0ea5e9' : '#0066cc'}`,
+  borderRadius: '6px',
+  fontSize: '14px',
+  color: searchTerm ? '#0369a1' : '#0066cc'
+}}>
+  {loading ? (
+    <>⏳ Buscando...</>
+  ) : searchTerm ? (
+    <>🔍 <strong>{filteredInvoices.length}</strong> resultados encontrados para "{searchTerm}"</>
+  ) : (
+    <>📊 Mostrando las <strong>{filteredInvoices.length}</strong> facturas más recientes</>
+  )}
+</div>
         </div>
 
         {/* Tabla de facturas */}

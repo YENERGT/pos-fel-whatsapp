@@ -70,9 +70,46 @@ if (search) {
   );
 }
     
+    // Ordenar facturas por número de orden (más recientes primero)
+ const sortedInvoices = invoices.sort((a, b) => {
+      // Extraer el número de la orden (ej: #1005 -> 1005)
+      const getOrderNumber = (orderStr) => {
+        const match = orderStr.match(/#?(\d+)/);
+        return match ? parseInt(match[1]) : 0;
+      };
+      
+      const orderA = getOrderNumber(a.orderNumber);
+      const orderB = getOrderNumber(b.orderNumber);
+      
+      return orderB - orderA; // Orden descendente (más recientes primero)
+    });
+
+    let finalInvoices;
+    let isSearching = false;
+
+    // Si hay búsqueda, buscar en TODAS las facturas (sin límite)
+    if (search) {
+      isSearching = true;
+      const query = search.toLowerCase();
+      finalInvoices = sortedInvoices.filter(invoice => 
+        invoice.orderNumber.toLowerCase().includes(query) ||
+        invoice.nit.toLowerCase().includes(query) ||
+        invoice.nombreNIT.toLowerCase().includes(query) ||
+        isDateInRange(invoice.fecha, query)
+      );
+      console.log(`🔍 Búsqueda "${search}": ${finalInvoices.length} resultados de ${sortedInvoices.length} facturas totales`);
+    } else {
+      // Sin búsqueda, mostrar solo las 20 más recientes
+      finalInvoices = sortedInvoices.slice(0, 20);
+      console.log(`📊 Mostrando ${finalInvoices.length} facturas más recientes de ${sortedInvoices.length} totales`);
+    }
+    
     return json({
       success: true,
-      invoices: filteredInvoices
+      invoices: finalInvoices,
+      total: sortedInvoices.length,
+      showing: finalInvoices.length,
+      isSearching: isSearching
     });
 
   } catch (error) {
